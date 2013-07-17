@@ -8,6 +8,7 @@ extern "C" {
 #include <sstream>
 #include <cassert>
 #include <cstring>
+#include <omp.h>
 #include <cstdlib>
 using namespace std;
 
@@ -56,8 +57,9 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    cout << "bytes " << bytes << endl;
+ //   cout << "bytes " << bytes << endl;
     uint32_t start = 0, stop = 1;
+    double start_time = omp_get_wtime();
     while(start < bytes && stop <= bytes) {
         xed_decoded_inst_zero_set_mode(&xedd, &dstate);
         // cout << "start: " << start << " stop: " << stop << endl;
@@ -72,26 +74,28 @@ int main(int argc, char** argv) {
         {
           case XED_ERROR_NONE:
               xed_decoded_inst_dump_att_format(&xedd,buffer,BUFLEN, 1);
-              cout << buffer << endl;
+           //   cout << buffer << endl;
               start = stop;
               stop = start + 1;
               break;
           case XED_ERROR_BUFFER_TOO_SHORT:
-                // cout << "Not enough bytes provided" << endl;
-                stop += 1;
-                break;
+            // cout << "Not enough bytes provided" << endl;
+            stop += 1;
+            break;
           case XED_ERROR_GENERAL_ERROR:
-                // cout << "Could not decode given input." << endl;
-                stop += 1;
-                break;
+            // cout << "Could not decode given input." << endl;
+            stop += 1;
+            break;
           default:
-                // cout << "Unhandled error code " << xed_error_enum_t2str(xed_error) << endl;
-                stop += 1;
-                break;
+            // cout << "Unhandled error code " << xed_error_enum_t2str(xed_error) << endl;
+            stop += 1;
+            break;
         }
 
     }
 
+    double end_time = omp_get_wtime();
+    cout << end_time - start_time << endl;
     // xed_bool_t ok;
     // for(u=  XED_SYNTAX_XED; u < XED_SYNTAX_LAST; u++) {
     //     xed_syntax_enum_t syntax = static_cast<xed_syntax_enum_t>(u);
