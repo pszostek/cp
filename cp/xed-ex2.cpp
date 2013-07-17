@@ -37,6 +37,7 @@ extern "C" {
 }
 #include <iostream>
 #include <iomanip>
+#include <omp.h>
 #include <sstream>
 #include <cassert>
 #include <cstring>
@@ -46,11 +47,10 @@ using namespace std;
 int main(int argc, char** argv);
 
 int main(int argc, char** argv) {
-    xed_bool_t long_mode = false;
+    xed_bool_t long_mode;
     xed_state_t dstate;
     int first_argv;
-    int bytes = 0;
-    unsigned char itext[argc];
+    int bytes;
     int i;
     unsigned int u;
     xed_decoded_inst_t xedd;
@@ -61,32 +61,27 @@ int main(int argc, char** argv) {
     xed_state_zero(&dstate);
     xed_set_verbosity( 99 );
 
-    if (argc > 2 && strcmp(argv[1], "-64") == 0) {
-        long_mode = true;
-        first_argv = 2;
-    } else {
-        first_argv = 1;
-    }
-
-
-
-    for( i=first_argv ;i < argc; i++)  {
-        unsigned int x;
-        istringstream s(argv[i]);
-        s >> hex >> x;
-
-        itext[bytes++] = XED_STATIC_CAST(xed_uint8_t,x);
-    }
-    if (bytes == 0) {
-        cout << "Must supply some hex bytes" << endl;
+    if (argc != 4) {
+        cerr << "3 arguments must be supplied." << endl;
         exit(1);
     }
 
+    if (argc > 2 && strcmp(argv[1], "64") == 0) {
+        long_mode = true;
+    } else if(strcmp(argv[1], "32") == 0) {
+        long_mode = false;
+    } else {
+        cerr << "Arg #1 must be equal to 32 or 64." << endl;
+        exit(1);
+    }
 
+    bytes = atoi(argv[2]);
+    cout << "bytes " << bytes << " long mode " << long_mode << endl;
     uint32_t start=0, stop=1;
     uint32_t inst_count = 0;
 
-     while(start < argc && stop <= argc-2) {
+    double start_time = omp_get_wtime();
+     while(start < bytes && stop <= bytes) {
         if (long_mode)  {
             dstate.mmode=XED_MACHINE_MODE_LONG_64;
         }
@@ -99,13 +94,13 @@ int main(int argc, char** argv) {
         xed_decoded_inst_zero_set_mode(&xedd, &dstate);
 
         xed_error_enum_t xed_error = xed_decode(&xedd, 
-                                                XED_REINTERPRET_CAST(xed_uint8_t*,itext+start),
+                                                XED_REINTERPRET_CAST(xed_uint8_t*,argv[3]+start),
                                                 stop-start);
         switch(xed_error)
         {
           case XED_ERROR_NONE:
           xed_decoded_inst_dump_att_format(&xedd,buffer,BUFLEN, 1231);
-          cout << buffer << endl;
+         // cout << buffer << endl;
           inst_count++;
             start = stop;
             stop = start+1;
@@ -125,7 +120,9 @@ int main(int argc, char** argv) {
         }
 
     }
-    cout << inst_count << endl;
+    double end_time = omp_get_wtime();
+    cout << end_time - start_time << endl;
+        cout << inst_count << endl;
     // xed_bool_t ok;
     // for(u=  XED_SYNTAX_XED; u < XED_SYNTAX_LAST; u++) {
     //     xed_syntax_enum_t syntax = static_cast<xed_syntax_enum_t>(u);
