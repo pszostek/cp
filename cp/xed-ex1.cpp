@@ -5,6 +5,7 @@ extern "C" {
 }
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <sstream>
 #include <cassert>
 #include <cstring>
@@ -19,7 +20,6 @@ int main(int argc, char** argv) {
     xed_state_t dstate;
     int first_argv;
     int bytes = 0;
-    unsigned char itext[argc+3];
     int i;
     unsigned int u;
     xed_decoded_inst_t xedd;
@@ -30,9 +30,8 @@ int main(int argc, char** argv) {
     xed_state_zero(&dstate);
     xed_set_verbosity( 99 );
 
-    if (argc > 2 && strcmp(argv[1], "-64") == 0) {
+    if (argc > 2 && strcmp(argv[1], "64") == 0) {
         long_mode = true;
-        cout << "LONG" << endl;
     }
 
     if (long_mode)  {
@@ -44,21 +43,30 @@ int main(int argc, char** argv) {
                        XED_ADDRESS_WIDTH_32b, 
                        XED_ADDRESS_WIDTH_32b);
     }
-    for( i=3 ;i < argc; i++)  {
-        unsigned int x;
-        istringstream s(argv[i]);
-        s >> hex >> x;
 
-        // assert(bytes < XED_MAX_INSTRUCTION_BYTES);
-        itext[bytes++] = XED_STATIC_CAST(xed_uint8_t,x);
-    }
+    // read .text section from a file
+    ifstream input_file;
+
+    input_file.open(argv[2], ifstream::in | ifstream::binary);
+    input_file.seekg (0, input_file.end);
+    bytes = input_file.tellg();
+    input_file.seekg (0, input_file.beg);
+
+    cout << bytes << " bytes" << endl;
+
     if (bytes == 0) {
         cout << "Must supply some hex bytes" << endl;
         exit(1);
     }
+    xed_uint8_t *itext = (xed_uint8_t*) malloc(bytes);
+    if(itext == NULL) {
+        exit(2);
+    }
+    input_file.read((char*)(itext), bytes);
 
- //   cout << "bytes " << bytes << endl;
     uint32_t start = 0, stop = 1;
+    uint32_t inst_count = 0;
+
     double start_time = omp_get_wtime();
     while(start < bytes && stop <= bytes) {
         xed_decoded_inst_zero_set_mode(&xedd, &dstate);
@@ -66,6 +74,9 @@ int main(int argc, char** argv) {
         //     cout << hex << setw(2) << setfill('0')
         //          << XED_STATIC_CAST(unsigned int,itext[start]) << " ";
         // cout << endl << setfill(' ');
+         // for(int i=start; i<stop; ++i) {
+         //     cout << hex << setw(2) << XED_STATIC_CAST(unsigned int, itext[i]) << " ";
+         // } cout << endl;
 
         xed_error_enum_t xed_error = xed_decode(&xedd, 
                                                 XED_REINTERPRET_CAST(xed_uint8_t*,itext+start),
@@ -73,21 +84,22 @@ int main(int argc, char** argv) {
         switch(xed_error)
         {
           case XED_ERROR_NONE:
-              xed_decoded_inst_dump_att_format(&xedd,buffer,BUFLEN, 1);
-           //   cout << buffer << endl;
+              xed_decoded_inst_dump_intel_format(&xedd,buffer,BUFLEN, 1);
+              cout << buffer << endl;
+              inst_count++;
               start = stop;
               stop = start + 1;
               break;
           case XED_ERROR_BUFFER_TOO_SHORT:
-            // cout << "Not enough bytes provided" << endl;
+             // cout << "Not enough bytes provided" << endl;
             stop += 1;
             break;
           case XED_ERROR_GENERAL_ERROR:
-            // cout << "Could not decode given input." << endl;
+             cerr << "Could not decode given input: XED general error" << endl;
             stop += 1;
             break;
           default:
-            // cout << "Unhandled error code " << xed_error_enum_t2str(xed_error) << endl;
+             // cout << "Unhandled error code " << xed_error_enum_t2str(xed_error) << endl;
             stop += 1;
             break;
         }
@@ -95,7 +107,8 @@ int main(int argc, char** argv) {
     }
 
     double end_time = omp_get_wtime();
-    cout << end_time - start_time << endl;
+    cout << inst_count << " instructions" << endl;  
+    cout << end_time - start_time << " seconds" << endl;
     // xed_bool_t ok;
     // for(u=  XED_SYNTAX_XED; u < XED_SYNTAX_LAST; u++) {
     //     xed_syntax_enum_t syntax = static_cast<xed_syntax_enum_t>(u);
