@@ -1,5 +1,3 @@
-// decoder example. C++ version of xed-ex4.c
-
 extern "C" {
 #include "xed-interface.h"
 }
@@ -16,7 +14,7 @@ using namespace std;
 int main(int argc, char** argv);
 
 int main(int argc, char** argv) {
-    xed_bool_t long_mode = false;
+    xed_bool_t long_mode;
     xed_state_t dstate;
     int first_argv;
     int bytes = 0;
@@ -32,6 +30,11 @@ int main(int argc, char** argv) {
 
     if (argc > 2 && strcmp(argv[1], "64") == 0) {
         long_mode = true;
+    } else if(strcmp(argv[1], "32") == 0) {
+        long_mode = false;
+    } else {
+        cerr << "Arg #1 must be equal to 32 or 64." << endl;
+        exit(1);
     }
 
     if (long_mode)  {
@@ -55,7 +58,7 @@ int main(int argc, char** argv) {
     cout << bytes << " bytes" << endl;
 
     if (bytes == 0) {
-        cout << "Must supply some hex bytes" << endl;
+        cout << "Must supply non-empty input file" << endl;
         exit(1);
     }
     xed_uint8_t *itext = (xed_uint8_t*) malloc(bytes);
@@ -84,22 +87,22 @@ int main(int argc, char** argv) {
         switch(xed_error)
         {
           case XED_ERROR_NONE:
-              xed_decoded_inst_dump_intel_format(&xedd,buffer,BUFLEN, 1);
-              cout << buffer << endl;
-              inst_count++;
-              start = stop;
-              stop = start + 1;
-              break;
+            xed_decoded_inst_dump_intel_format(&xedd,buffer,BUFLEN, 1);
+            cout << buffer << endl;
+            inst_count++;
+            start = stop;
+            stop = start + 1;
+            break;
           case XED_ERROR_BUFFER_TOO_SHORT:
-             // cout << "Not enough bytes provided" << endl;
+             // cerr << "Not enough bytes provided" << endl;
             stop += 1;
             break;
           case XED_ERROR_GENERAL_ERROR:
-             cerr << "Could not decode given input: XED general error" << endl;
+            cerr << "Could not decode given input: XED general error" << endl;
             stop += 1;
             break;
           default:
-             // cout << "Unhandled error code " << xed_error_enum_t2str(xed_error) << endl;
+            // cerr << "Unhandled error code " << xed_error_enum_t2str(xed_error) << endl;
             stop += 1;
             break;
         }
