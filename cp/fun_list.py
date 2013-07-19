@@ -60,7 +60,12 @@ def iter_func(iter_symbols):
     raise StopIteration()
 
 if __name__ == '__main__':
-    assert len(sys.argv) > 2
+    if len(sys.argv) != 3:
+        sys.exit("Usage: fun_list.py [-l] [-s] [-t] path/to/elf\n"
+                 " -l, -s, -t options are mutually exclusive\n"
+                 "  -l\tprint length in bytes of .text section\n"
+                 "  -s\tprint content of symbol table\n"
+                 "  -t\tprint print raw content of .text section\n")
     if sys.argv[1] == "-s":
         for filename in sys.argv[2:]:
             get_symbols(filename)
