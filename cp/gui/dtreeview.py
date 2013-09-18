@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        loadUi('olprof.ui', self)
+        loadUi('olproof.ui', self)
         self.pushButton.clicked.connect(self.pinupModel)
         self.model = None 
         self.treeView.setModel(self.model)
