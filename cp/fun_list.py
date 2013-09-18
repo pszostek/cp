@@ -34,12 +34,15 @@ def get_text(filename, length=False):
         elffile = ELFFile(f)
 
         text = elffile.get_section_by_name('.text')
+        text_offset = text.header.sh_addr
+
         if text is None:
             print('The file has no .text section')
             quit()
         if length is False:
             # print('  '.join(["%02X" % ord(byte) for byte in text.data()]))
-            print(text.data())
+            print(type(text.data()))
+          #  print(text.data())
         else:
             print(len(text.data()))
 
