@@ -39,12 +39,13 @@ def get_text(filename, length=False):
         if text is None:
             print('The file has no .text section')
             quit()
-        if length is False:
+      #  if length is False:
             # print('  '.join(["%02X" % ord(byte) for byte in text.data()]))
-            print(type(text.data()))
+          #  print(type(text.data()))
           #  print(text.data())
-        else:
-            print(len(text.data()))
+       # else:
+        #    print(len(text.data()))
+        return text.data()
 
 
 def iter_func(iter_symbols):
@@ -74,6 +75,6 @@ if __name__ == '__main__':
             get_symbols(filename)
     elif sys.argv[1] == "-t":
         for filename in sys.argv[2:]:
-            get_text(filename)
+            print(get_text(filename))
     elif sys.argv[1] == "-l":
-        get_text(sys.argv[2], length=True)
+        print(len(get_text(sys.argv[2])))
