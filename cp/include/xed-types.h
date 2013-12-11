@@ -47,19 +47,19 @@ END_LEGAL */
 # define xed_uint64_t uint64_t
 # define xed_int8_t   int8_t 
 # define xed_int16_t 	 int16_t
-# define xed_int32_t  int32_t
-# define xed_int64_t  int64_t
-#elif defined(_WIN32)
+# define int32_t  int32_t
+# define int64_t  int64_t
+/*#elif defined(_WIN32)
 # define xed_uint8_t unsigned __int8
 # define xed_uint16_t unsigned __int16
 # define xed_uint32_t unsigned __int32
 # define xed_uint64_t unsigned __int64
 # define xed_int8_t  __int8
 # define xed_int16_t __int16
-# define xed_int32_t __int32
-# define xed_int64_t __int64
+# define int32_t __int32
+# define int64_t __int64
 #else
-# error "XED types unsupported platform? Need windows, gcc, or icc."
+# error "XED types unsupported platform? Need windows, gcc, or icc."*/
 #endif
 
 typedef unsigned int xed_uint_t;
@@ -96,7 +96,7 @@ typedef union {
   xed_uint16_t w0; /*low 16 bits*/
   xed_uint16_t w1; /*high 16 bits*/
  } w;
- xed_int32_t i32;
+ int32_t i32;
  xed_uint32_t u32;
 } xed_union32_t ;
 
@@ -106,7 +106,7 @@ typedef union {
   xed_uint32_t  dword[2]; 
   xed_int8_t   s_byte[8]; 
   xed_int16_t  s_word[4]; 
-  xed_int32_t  s_dword[2]; 
+  int32_t  s_dword[2]; 
 
  struct {
   xed_uint8_t b0; /*low 8 bits*/
@@ -130,7 +130,7 @@ typedef union {
   xed_uint32_t hi32;
  } s;
   xed_uint64_t u64;
-  xed_int64_t i64;
+  int64_t i64;
 } xed_union64_t ;
 
 ////////////////////////////////////////////////////////////////////////////

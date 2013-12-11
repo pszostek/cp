@@ -98,8 +98,8 @@ typedef struct xed_decoded_inst_s {
   union {
     xed_int8_t byte;
     xed_int16_t word;
-    xed_int32_t dword;
-    xed_int64_t qword;
+    int32_t dword;
+    int64_t qword;
   } disp_val;
 
   
@@ -483,7 +483,7 @@ XED_DLL_EXPORT xed_reg_enum_t xed_decoded_inst_get_index_reg(const xed_decoded_i
 /// @ingroup DEC
 XED_DLL_EXPORT unsigned int xed_decoded_inst_get_scale(const xed_decoded_inst_t* p, unsigned int mem_idx);
 /// @ingroup DEC
-XED_DLL_EXPORT xed_int64_t xed_decoded_inst_get_memory_displacement(const xed_decoded_inst_t* p, unsigned int mem_idx);
+XED_DLL_EXPORT int64_t xed_decoded_inst_get_memory_displacement(const xed_decoded_inst_t* p, unsigned int mem_idx);
 /// @ingroup DEC
 /// Result in BYTES
 XED_DLL_EXPORT unsigned int xed_decoded_inst_get_memory_displacement_width(const xed_decoded_inst_t* p, unsigned int mem_idx);
@@ -491,7 +491,7 @@ XED_DLL_EXPORT unsigned int xed_decoded_inst_get_memory_displacement_width(const
 /// Result in BITS
 XED_DLL_EXPORT unsigned int xed_decoded_inst_get_memory_displacement_width_bits(const xed_decoded_inst_t* p, unsigned int mem_idx);
 /// @ingroup DEC
-XED_DLL_EXPORT xed_int32_t xed_decoded_inst_get_branch_displacement(const xed_decoded_inst_t* p);
+XED_DLL_EXPORT int32_t xed_decoded_inst_get_branch_displacement(const xed_decoded_inst_t* p);
 /// @ingroup DEC
 /// Result in BYTES
 XED_DLL_EXPORT unsigned int xed_decoded_inst_get_branch_displacement_width(const xed_decoded_inst_t* p);
@@ -510,7 +510,7 @@ XED_DLL_EXPORT unsigned int xed_decoded_inst_get_immediate_width(const xed_decod
 /// Return the immediate width in BITS.
 XED_DLL_EXPORT unsigned int xed_decoded_inst_get_immediate_width_bits(const xed_decoded_inst_t* p);
 /// @ingroup DEC
-XED_DLL_EXPORT xed_int32_t xed_decoded_inst_get_signed_immediate(const xed_decoded_inst_t* p);
+XED_DLL_EXPORT int32_t xed_decoded_inst_get_signed_immediate(const xed_decoded_inst_t* p);
 /// @ingroup DEC
 /// Return the second immediate. 
 static uint8_t xed_decoded_inst_get_second_immediate(const xed_decoded_inst_t* p) {
@@ -576,13 +576,13 @@ XED_DLL_EXPORT unsigned int xed_decoded_inst_is_prefetch(const xed_decoded_inst_
 XED_DLL_EXPORT void xed_decoded_inst_set_scale(xed_decoded_inst_t* p, unsigned int scale);
 /// @ingroup DEC
 /// Set the memory displacement using a BYTE length
-XED_DLL_EXPORT void xed_decoded_inst_set_memory_displacement(xed_decoded_inst_t* p, xed_int64_t disp, unsigned int length_bytes);
+XED_DLL_EXPORT void xed_decoded_inst_set_memory_displacement(xed_decoded_inst_t* p, int64_t disp, unsigned int length_bytes);
 /// @ingroup DEC
 /// Set the branch displacement using a BYTE length
-XED_DLL_EXPORT void xed_decoded_inst_set_branch_displacement(xed_decoded_inst_t* p, xed_int32_t disp, unsigned int length_bytes);
+XED_DLL_EXPORT void xed_decoded_inst_set_branch_displacement(xed_decoded_inst_t* p, int32_t disp, unsigned int length_bytes);
 /// @ingroup DEC
 /// Set the signed immediate a BYTE length
-XED_DLL_EXPORT void xed_decoded_inst_set_immediate_signed(xed_decoded_inst_t* p, xed_int32_t x, unsigned int length_bytes);
+XED_DLL_EXPORT void xed_decoded_inst_set_immediate_signed(xed_decoded_inst_t* p, int32_t x, unsigned int length_bytes);
 /// @ingroup DEC
 /// Set the unsigned immediate a BYTE length
 XED_DLL_EXPORT void xed_decoded_inst_set_immediate_unsigned(xed_decoded_inst_t* p, uint64_t x, unsigned int length_bytes);
@@ -590,13 +590,13 @@ XED_DLL_EXPORT void xed_decoded_inst_set_immediate_unsigned(xed_decoded_inst_t* 
 
 /// @ingroup DEC
 /// Set the memory displacement a BITS length
-XED_DLL_EXPORT void xed_decoded_inst_set_memory_displacement_bits(xed_decoded_inst_t* p, xed_int64_t disp, unsigned int length_bits);
+XED_DLL_EXPORT void xed_decoded_inst_set_memory_displacement_bits(xed_decoded_inst_t* p, int64_t disp, unsigned int length_bits);
 /// @ingroup DEC
 /// Set the branch displacement a BITS length
-XED_DLL_EXPORT void xed_decoded_inst_set_branch_displacement_bits(xed_decoded_inst_t* p, xed_int32_t disp, unsigned int length_bits);
+XED_DLL_EXPORT void xed_decoded_inst_set_branch_displacement_bits(xed_decoded_inst_t* p, int32_t disp, unsigned int length_bits);
 /// @ingroup DEC
 /// Set the signed immediate a BITS length
-XED_DLL_EXPORT void xed_decoded_inst_set_immediate_signed_bits(xed_decoded_inst_t* p, xed_int32_t x, unsigned int length_bits);
+XED_DLL_EXPORT void xed_decoded_inst_set_immediate_signed_bits(xed_decoded_inst_t* p, int32_t x, unsigned int length_bits);
 /// @ingroup DEC
 /// Set the unsigned immediate a BITS length
 XED_DLL_EXPORT void xed_decoded_inst_set_immediate_unsigned_bits(xed_decoded_inst_t* p, uint64_t x, unsigned int length_bits);

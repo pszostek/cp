@@ -91,7 +91,7 @@ typedef struct {
   xed_encoder_operand_type_t type;
   union {
     xed_reg_enum_t reg;
-    xed_int32_t brdisp;
+    int32_t brdisp;
     xed_uint64_t imm0;
     xed_uint8_t imm1;
     struct {
@@ -107,7 +107,7 @@ typedef struct {
 //@{
 /// @ingroup ENCHL
 /// a relative branch displacement operand
-static  xed_encoder_operand_t xed_relbr(xed_int32_t brdisp,
+static  xed_encoder_operand_t xed_relbr(int32_t brdisp,
                           xed_uint_t width) {
   xed_encoder_operand_t o;
   o.type = XED_ENCODER_OPERAND_TYPE_BRDISP;
@@ -122,7 +122,7 @@ static  xed_encoder_operand_t xed_relbr(xed_int32_t brdisp,
 /// @ingroup ENCHL
 /// a relative displacement for a PTR operand -- the subsequent imm0 holds
 ///the 16b selector
-static  xed_encoder_operand_t xed_ptr(xed_int32_t brdisp,
+static  xed_encoder_operand_t xed_ptr(int32_t brdisp,
                          xed_uint_t width) {
   xed_encoder_operand_t o;
   o.type = XED_ENCODER_OPERAND_TYPE_PTR;
@@ -156,7 +156,7 @@ static  xed_encoder_operand_t xed_imm0(xed_uint64_t v,
 }
 /// @ingroup ENCHL
 /// an 32b signed immediate operand
-static  xed_encoder_operand_t xed_simm0(xed_int32_t v,
+static  xed_encoder_operand_t xed_simm0(int32_t v,
                           xed_uint_t width) {
   xed_encoder_operand_t o;
   o.type = XED_ENCODER_OPERAND_TYPE_SIMM0;
@@ -184,7 +184,7 @@ static  xed_encoder_operand_t xed_imm1(xed_uint8_t v) {
 /// an operand storage field name and value
 static  xed_encoder_operand_t xed_other(
                       xed_operand_enum_t operand_name,
-                      xed_int32_t value) {
+                      int32_t value) {
   xed_encoder_operand_t o;
   o.type = XED_ENCODER_OPERAND_TYPE_OTHER;
   o.u.s.operand_name = operand_name;
