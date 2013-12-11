@@ -1,5 +1,5 @@
 extern "C" {
-#include "xed-interface.h"
+#include "include/xed-interface.h"
 }
 #include <iostream>
 #include <iomanip>
@@ -8,6 +8,7 @@ extern "C" {
 #include <cassert>
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 using namespace std;
 
 int main(int argc, char** argv);
@@ -21,6 +22,17 @@ int main(int argc, char** argv) {
     unsigned int u;
     xed_decoded_inst_t xedd;
 #define BUFLEN  1000
+    char* buf = (char*)malloc(atoi(argv[2])*sizeof(char)+1);
+    FILE* fp = fopen(argv[3], "r");
+    if(fp != NULL) {
+      size_t newLen = fread(buf, sizeof(char), atoi(argv[2]), fp);
+      if (newLen == 0) {
+        fputs("Error reading file", stderr);
+      } else {
+        buf[++newLen] = '\0';
+      }
+      fclose(fp);
+    }
     char buffer[BUFLEN];
 
     xed_tables_init();
@@ -46,7 +58,6 @@ int main(int argc, char** argv) {
     uint32_t start=0, stop=1;
     uint32_t inst_count = 0;
 
-    double start_time = omp_get_wtime();
      while(start < bytes && stop <= bytes) {
         if (long_mode)  {
             dstate.mmode=XED_MACHINE_MODE_LONG_64;
@@ -60,7 +71,7 @@ int main(int argc, char** argv) {
         xed_decoded_inst_zero_set_mode(&xedd, &dstate);
 
         xed_error_enum_t xed_error = xed_decode(&xedd, 
-                                                XED_REINTERPRET_CAST(xed_uint8_t*,argv[3]+start),
+                                                XED_REINTERPRET_CAST(xed_uint8_t*,buf+start),
                                                 stop-start);
         switch(xed_error)
         {
@@ -87,9 +98,6 @@ int main(int argc, char** argv) {
 
     }
 
-    double end_time = omp_get_wtime();
-    cout << inst_count << " instructions" << endl;  
-    cout << end_time - start_time << " seconds" << endl;
     // xed_bool_t ok;
     // for(u=  XED_SYNTAX_XED; u < XED_SYNTAX_LAST; u++) {
     //     xed_syntax_enum_t syntax = static_cast<xed_syntax_enum_t>(u);
