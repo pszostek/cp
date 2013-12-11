@@ -163,7 +163,7 @@ int xed_strncat_lower(char* dst, const char* src, int len);
 int xed_itoa(char* buf, xed_uint64_t f, int buflen);
 int xed_itoa_hex_zeros(char* buf, xed_uint64_t f, xed_uint_t xed_bits_to_print, xed_bool_t leading_zeros, int buflen);
 int xed_itoa_hex(char* buf, xed_uint64_t f, xed_uint_t xed_bits_to_print, int buflen);
-int xed_itoa_signed(char* buf, xed_int64_t f, int buflen);
+int xed_itoa_signed(char* buf, int64_t f, int buflen);
 
 char xed_to_ascii_hex_nibble(xed_uint_t x);
 
@@ -177,8 +177,8 @@ int xed_sprintf_uint32(char* buf, xed_uint32_t x, int buflen);
 int xed_sprintf_uint64(char* buf, xed_uint64_t x, int buflen);
 int xed_sprintf_int8(char* buf, xed_int8_t x, int buflen);
 int xed_sprintf_int16(char* buf, xed_int16_t x, int buflen);
-int xed_sprintf_int32(char* buf, xed_int32_t x, int buflen);
-int xed_sprintf_int64(char* buf, xed_int64_t x, int buflen);
+int xed_sprintf_int32(char* buf, int32_t x, int buflen);
+int xed_sprintf_int64(char* buf, int64_t x, int buflen);
 
 /// Set the FILE* for XED's log msgs. This takes a FILE* as a void* because
 /// some software defines their own FILE* types creating conflicts.
@@ -191,20 +191,20 @@ XED_DLL_EXPORT void xed_set_verbosity(int v);
 void xed_derror(const char* s);
 void xed_dwarn(const char* s);
 
-XED_DLL_EXPORT xed_int64_t xed_sign_extend32_64(xed_int32_t x);
-XED_DLL_EXPORT xed_int64_t xed_sign_extend16_64(xed_int16_t x);
-XED_DLL_EXPORT xed_int64_t xed_sign_extend8_64(xed_int8_t x);
+XED_DLL_EXPORT int64_t xed_sign_extend32_64(int32_t x);
+XED_DLL_EXPORT int64_t xed_sign_extend16_64(xed_int16_t x);
+XED_DLL_EXPORT int64_t xed_sign_extend8_64(xed_int8_t x);
 
-XED_DLL_EXPORT xed_int32_t xed_sign_extend16_32(xed_int16_t x);
-XED_DLL_EXPORT xed_int32_t xed_sign_extend8_32(xed_int8_t x);
+XED_DLL_EXPORT int32_t xed_sign_extend16_32(xed_int16_t x);
+XED_DLL_EXPORT int32_t xed_sign_extend8_32(xed_int8_t x);
 
 XED_DLL_EXPORT xed_int16_t xed_sign_extend8_16(xed_int8_t x);
 
 ///arbitrary sign extension from a qty of "bits" length to 32b 
-XED_DLL_EXPORT xed_int32_t xed_sign_extend_arbitrary_to_32(xed_uint32_t x, unsigned int bits);
+XED_DLL_EXPORT int32_t xed_sign_extend_arbitrary_to_32(xed_uint32_t x, unsigned int bits);
 
 ///arbitrary sign extension from a qty of "bits" length to 64b 
-XED_DLL_EXPORT xed_int64_t xed_sign_extend_arbitrary_to_64(xed_uint64_t x, unsigned int bits);
+XED_DLL_EXPORT int64_t xed_sign_extend_arbitrary_to_64(xed_uint64_t x, unsigned int bits);
 
 
 XED_DLL_EXPORT xed_uint64_t xed_zero_extend32_64(xed_uint32_t x);
@@ -217,15 +217,15 @@ XED_DLL_EXPORT xed_uint32_t xed_zero_extend8_32(xed_uint8_t x);
 XED_DLL_EXPORT xed_uint16_t xed_zero_extend8_16(xed_uint8_t x);
 
 #if defined(XED_LITTLE_ENDIAN_SWAPPING)
-XED_DLL_EXPORT xed_int32_t 
+XED_DLL_EXPORT int32_t 
 xed_little_endian_to_int32(xed_uint64_t x, unsigned int len);
 
-XED_DLL_EXPORT xed_int64_t 
+XED_DLL_EXPORT int64_t 
 xed_little_endian_to_int64(xed_uint64_t x, unsigned int len);
 XED_DLL_EXPORT xed_uint64_t 
 xed_little_endian_to_uint64(xed_uint64_t x, unsigned int len);
 
-XED_DLL_EXPORT xed_int64_t 
+XED_DLL_EXPORT int64_t 
 xed_little_endian_hilo_to_int64(xed_uint32_t hi_le, xed_uint32_t lo_le, unsigned int len);
 XED_DLL_EXPORT xed_uint64_t 
 xed_little_endian_hilo_to_uint64(xed_uint32_t hi_le, xed_uint32_t lo_le, unsigned int len);
@@ -240,7 +240,7 @@ static inline xed_uint64_t xed_make_uint64(xed_uint32_t hi, xed_uint32_t lo) {
   y.s.hi32= hi;
   return y.u64;
 }
-static inline xed_int64_t xed_make_int64(xed_uint32_t hi, xed_uint32_t lo) {
+static inline int64_t xed_make_int64(xed_uint32_t hi, xed_uint32_t lo) {
   xed_union64_t y;
   y.s.lo32= lo;
   y.s.hi32= hi;
@@ -260,7 +260,7 @@ XED_DLL_EXPORT xed_uint_t xed_shortest_width_unsigned(xed_uint64_t x, xed_uint8_
 /// byte is a legal return width, bit 1 implies that 2 bytes is a legal
 /// return width, bit 2 implies that 4 bytes is a legal return width. This
 /// returns 8 (indicating 8B) if none of the provided legal widths applies.
-XED_DLL_EXPORT xed_uint_t xed_shortest_width_signed(xed_int64_t x, xed_uint8_t legal_widths);
+XED_DLL_EXPORT xed_uint_t xed_shortest_width_signed(int64_t x, xed_uint8_t legal_widths);
 
 ////////////////////////////////////////////////////////////////////////////
 // GLOBALS

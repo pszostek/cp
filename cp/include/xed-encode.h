@@ -148,7 +148,7 @@ xed_uint_t xed_encoder_request_operand_order_entries(xed_encoder_request_t* p) {
 XED_DLL_EXPORT void xed_encoder_request_set_relbr(xed_encoder_request_t* p);
 /// @ingroup ENC
 XED_DLL_EXPORT void xed_encoder_request_set_branch_displacement(xed_encoder_request_t* p,
-                                xed_int32_t brdisp,
+                                int32_t brdisp,
                                 xed_uint_t nbytes);
 /// @ingroup ENC
 XED_DLL_EXPORT void xed_encoder_request_set_ptr(xed_encoder_request_t* p);
@@ -173,7 +173,7 @@ XED_DLL_EXPORT void xed_encoder_request_set_uimm1(xed_encoder_request_t* p,
 /// @ingroup ENC
 /// same storage as uimm0
 XED_DLL_EXPORT void xed_encoder_request_set_simm(xed_encoder_request_t* p,
-                         xed_int32_t simm,
+                         int32_t simm,
                          xed_uint_t nbytes);
 /// @ingroup ENC
 /// Set an arbitrary operand storage field
@@ -187,7 +187,7 @@ XED_DLL_EXPORT void xed_encoder_request_set_operand_storage_field(xed_encoder_re
 //@{
 /// @ingroup ENC
 XED_DLL_EXPORT void xed_encoder_request_set_memory_displacement(xed_encoder_request_t* p,
-                                xed_int64_t memdisp,
+                                int64_t memdisp,
                                 xed_uint_t nbytes);
 
 /// @ingroup ENC

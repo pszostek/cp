@@ -194,8 +194,8 @@ xed_operand_values_has_immediate(const xed_operand_values_t* p);
 /// ALIAS for has_displacement().
 /// Deprecated. See has_memory_displacement() and
 /// has_branch_displacement().
-XED_DLL_EXPORT xed_bool_t
-xed_operand_values_has_disp(const xed_operand_values_t* p); 
+//XED_DLL_EXPORT xed_bool_t
+//xed_operand_values_has_disp(const xed_operand_values_t* p); 
 
 /// @ingroup OPERANDS  
 /// This indicates the presence of a 67 prefix.
@@ -228,8 +228,8 @@ XED_DLL_EXPORT xed_reg_enum_t
 xed_operand_values_segment_prefix(const xed_operand_values_t* p);
 
 /// @ingroup OPERANDS  
-XED_DLL_EXPORT xed_bool_t
-xed_operand_values_is_prefetch(const xed_operand_values_t* p);
+//XED_DLL_EXPORT xed_bool_t
+//xed_operand_values_is_prefetch(const xed_operand_values_t* p);
 
 /// @ingroup OPERANDS  
 XED_DLL_EXPORT xed_bool_t
@@ -303,11 +303,11 @@ xed_operand_values_is_nop(const xed_operand_values_t* p);
 /// @name Immediates
 //@{
 /// @ingroup OPERANDS  
-XED_DLL_EXPORT xed_int64_t
+XED_DLL_EXPORT int64_t
 xed_operand_values_get_immediate_int64(const xed_operand_values_t* p);
 
 
-xed_int64_t xed3_operand_get_immediate_int64(
+int64_t xed3_operand_get_immediate_int64(
                      const void* xedd);
 
 /// @ingroup OPERANDS  
@@ -348,22 +348,22 @@ XED_DLL_EXPORT xed_uint32_t
 xed_operand_values_get_memory_displacement_length_bits_raw(const xed_operand_values_t* p);
 
 /// @ingroup OPERANDS  
-XED_DLL_EXPORT xed_int64_t
+XED_DLL_EXPORT int64_t
 xed_operand_values_get_memory_displacement_int64(const xed_operand_values_t* p);
 
 
 /* FIXME: void* because we cannot use decoded_inst_t - circular dependency,
  * but we need it for getting itext and using operand accessors */
 /// @ingroup OPERANDS  
-XED_DLL_EXPORT xed_int64_t
+XED_DLL_EXPORT int64_t
 xed3_operand_get_memory_displacement_int64(const void* p);
 
 /// @ingroup OPERANDS
-XED_DLL_EXPORT xed_int64_t
+XED_DLL_EXPORT int64_t
 xed3_operand_get_memory_displacement_int64_raw(const void* p);
 
 /// @ingroup OPERANDS  
-XED_DLL_EXPORT xed_int32_t
+XED_DLL_EXPORT int32_t
 xed3_operand_get_branch_displacement_int32(const void* p);
 
 
@@ -385,7 +385,7 @@ XED_DLL_EXPORT xed_uint32_t
 xed_operand_values_get_branch_displacement_length_bits(const xed_operand_values_t* p);
 
 /// @ingroup OPERANDS  
-XED_DLL_EXPORT xed_int32_t
+XED_DLL_EXPORT int32_t
 xed_operand_values_get_branch_displacement_int32(const xed_operand_values_t* p);
 
 /// @ingroup OPERANDS  
@@ -448,12 +448,12 @@ xed_operand_values_set_memory_operand_length(xed_operand_values_t* p,
 /// Set the memory displacement using a BYTES length
 XED_DLL_EXPORT void
 xed_operand_values_set_memory_displacement(xed_operand_values_t* p,
-                      xed_int64_t x, unsigned int len);
+                      int64_t x, unsigned int len);
 /// @ingroup OPERANDS  
 /// Set the memory displacement using a BITS length
 XED_DLL_EXPORT void
 xed_operand_values_set_memory_displacement_bits(xed_operand_values_t* p,
-                        xed_int64_t x,
+                        int64_t x,
                         unsigned int len_bits);
 
 /// @ingroup OPERANDS  
@@ -464,26 +464,26 @@ XED_DLL_EXPORT void xed_operand_values_set_relbr(xed_operand_values_t* p);
 /// Set the branch displacement using a BYTES length
 XED_DLL_EXPORT void
 xed_operand_values_set_branch_displacement(xed_operand_values_t* p,
-                      xed_int32_t x,
+                      int32_t x,
                       unsigned int len);
 /// @ingroup OPERANDS  
 /// Set the branch displacement using a BITS length
 XED_DLL_EXPORT void
 xed_operand_values_set_branch_displacement_bits(xed_operand_values_t* p,
-                        xed_int32_t x,
+                        int32_t x,
                         unsigned int len_bits);
 
 /// @ingroup OPERANDS  
 /// Set the signed immediate using a BYTES length
 XED_DLL_EXPORT void
 xed_operand_values_set_immediate_signed(xed_operand_values_t* p,
-                    xed_int32_t x,
+                    int32_t x,
                     unsigned int bytes); 
 /// @ingroup OPERANDS  
 /// Set the signed immediate using a BITS length
 XED_DLL_EXPORT void
 xed_operand_values_set_immediate_signed_bits(xed_operand_values_t* p,
-                       xed_int32_t x,
+                       int32_t x,
                        unsigned int bits); 
 
 

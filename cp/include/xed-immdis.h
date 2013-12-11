@@ -88,7 +88,7 @@ XED_DLL_EXPORT unsigned int xed_immdis_get_bytes(const xed_immdis_t* p) ;
 
 /// @name Accessors for the value of the immediate or displacement
 //@{
-XED_DLL_EXPORT xed_int64_t 
+XED_DLL_EXPORT int64_t 
 xed_immdis_get_signed64(const xed_immdis_t* p);
 
 XED_DLL_EXPORT xed_uint64_t 
@@ -160,7 +160,7 @@ xed_immdis_add_byte_array(xed_immdis_t* p, int nb, xed_uint8_t* ba);
 /// XED_MAX_IMMDIS_BYTES if the x value requires it. NOTE: 16b memory
 /// addressing can have 16b immediates.
 XED_DLL_EXPORT void
-xed_immdis_add_shortest_width_signed(xed_immdis_t* p, xed_int64_t x, xed_uint8_t legal_widths);
+xed_immdis_add_shortest_width_signed(xed_immdis_t* p, int64_t x, xed_uint8_t legal_widths);
 
 /// See add_shortest_width_signed()
 XED_DLL_EXPORT void
@@ -177,11 +177,11 @@ xed_immdis_add16(xed_immdis_t* p, xed_int16_t d);
 
 /// add a 32 bit value to the byte array
 XED_DLL_EXPORT void
-xed_immdis_add32(xed_immdis_t* p, xed_int32_t d);
+xed_immdis_add32(xed_immdis_t* p, int32_t d);
 
 /// add a 64 bit value to the byte array.
 XED_DLL_EXPORT void
-xed_immdis_add64(xed_immdis_t* p, xed_int64_t d);
+xed_immdis_add64(xed_immdis_t* p, int64_t d);
 
 //@}
 

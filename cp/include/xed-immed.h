@@ -38,7 +38,7 @@ END_LEGAL */
 #include "xed-common-defs.h"
 #include "xed-util.h"
 
-XED_DLL_EXPORT xed_int64_t xed_immed_from_bytes(xed_int8_t* bytes, xed_uint_t n);
+XED_DLL_EXPORT int64_t xed_immed_from_bytes(xed_int8_t* bytes, xed_uint_t n);
   /*
    Convert an array of bytes representing a Little Endian byte ordering
    of a number (11 22 33 44 55.. 88), in to a a 64b SIGNED number. That gets
