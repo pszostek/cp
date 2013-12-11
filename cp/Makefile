@@ -1,14 +1,17 @@
-_disass.so: xed_disass.c disass_wrap.c xed_disass.h
-	gcc -fPIC xed_disass.c disass_wrap.c -I/usr/include/python2.7 -L../lib -lxed -shared -o _disass.so
+all: _xed.so xed_disass
 
-disass.py: disass.i _disass.so
-	swig -Wall -python disass.i	 
+xed_disass: xed_disass.c xed_disass.h
+	gcc -g -o xed_disass xed_disass.c -Iinclude -L../lib -lxed
 
-disass_wrap.c: disass.i
-	swig -Wall -python disass.i
+_xed.so: xed_disass.c xed_wrap.c xed_disass.h
+	gcc -fPIC xed_disass.c xed_wrap.c -I/usr/include/python2.7 -L../lib -lxed -shared -o _xed.so
+
+xed.py: xed.i _xed.so
+	swig -Wall -python xed.i	 
+
+xed_wrap.c: xed.i
+	swig -Wall -python xed.i
 	 
-
-all: xed-ex1 xed-ex2
 
 xed-ex1: xed-ex1.o
 	g++  -fopenmp  -o xed-ex1 xed-ex1.o ../lib/libxed.a
@@ -25,4 +28,4 @@ xed-ex2.o: xed-ex2.cpp
 .PHONY: clean
 
 clean:
-	rm -rf xed-ex2 xed-ex2.o disass_wrap.c _disass.so disass.py *.pyc *.o
+	rm -rf xed-ex2 xed-ex2.o xed_wrap.c _xed.so xed.py *.pyc *.o

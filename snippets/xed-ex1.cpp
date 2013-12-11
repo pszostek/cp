@@ -1,40 +1,24 @@
-extern "C" {
-#include "xed-interface.h"
-}
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <cassert>
-#include <cstring>
-#include <omp.h>
-#include <cstdlib>
+#include "xed_disass.h"
 using namespace std;
 
-//
-// usage: ./xed-ex1 [32,64] /path/to/dumped/.text/section
-//
-
-int disassemble(int mode, char* data, unsigned int length) {
+vector<xed_decoded_inst_t> disassemble(int mode, char* data, unsigned int length) {
     xed_bool_t long_mode;
     xed_state_t dstate;
     int first_argv;
     int i;
     unsigned int u;
-    xed_decoded_inst_t xedd;
     const unsigned int BUFLEN = 1000;
     char buffer[BUFLEN];
 
     xed_tables_init();
     xed_state_zero(&dstate);
     xed_set_verbosity( 99 );
-    if (mode == 64) {
+    if (mode == MODE64) {
         long_mode = true;
-    } else if(mode = 32) {
+    } else if(mode == MODE32) {
         long_mode = false;
     } else {
-        cerr << "Arg #1 must be equal to 32 or 64." << endl;
-        return 1;
+        throw runtime_error("Arg #1 must be equal to 32 or 64.");
     }
 
     if (long_mode)  {
@@ -48,18 +32,21 @@ int disassemble(int mode, char* data, unsigned int length) {
     }
 
     // read .text section from a file
-    cout << length << " bytes" << endl;
+    // cout << length << " bytes" << endl;
 
     if (length == 0) {
-        cout << "Must supply non-empty input string" << endl;
-        return 2;
+       // cout << "Must supply non-empty input string" << endl;
+       // return 2;
+        throw runtime_error("Must supply non-empty input string");
     }
 
     uint32_t start = 0, stop = 1;
     uint32_t inst_count = 0;
-
-    double start_time = omp_get_wtime();
+    vector<xed_decoded_inst_t> ret = vector<xed_decoded_inst_t>();
+   // double start_time = omp_get_wtime();
+    cout << "start" << endl;
     while(start < length && stop <= length) {
+        xed_decoded_inst_t xedd;
         xed_decoded_inst_zero_set_mode(&xedd, &dstate);
         // cout << "start: " << start << " stop: " << stop << endl;
         //     cout << hex << setw(2) << setfill('0')
@@ -72,6 +59,7 @@ int disassemble(int mode, char* data, unsigned int length) {
         xed_error_enum_t xed_error = xed_decode(&xedd, 
                                                 XED_REINTERPRET_CAST(xed_uint8_t*,data+start),
                                                 stop-start);
+        ret.push_back(xedd);
         switch(xed_error)
         {
           case XED_ERROR_NONE:
@@ -97,18 +85,9 @@ int disassemble(int mode, char* data, unsigned int length) {
 
     }
 
-    double end_time = omp_get_wtime();
-    cout << inst_count << " instructions" << endl;  
-    cout << end_time - start_time << " seconds" << endl;
-    return 0;
-}
-
-
-int main(int argc, char** argv);
-
-int main(int argc, char** argv) {
-
-
-    int retcode = disassemble(atoi(argv[1]), argv[3], atoi(argv[2]));
-    return retcode;
+  //  double end_time = omp_get_wtime();
+  //  cout << inst_count << " instructions" << endl;  
+   // cout << end_time - start_time << " seconds" << endl;
+    cout<<"end"<<endl;
+    return ret;
 }
