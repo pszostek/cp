@@ -1,16 +1,16 @@
 all: _xed.so xed_disass
 
 xed_disass: xed_disass.c xed_disass.h
-	gcc -g -o xed_disass xed_disass.c -Iinclude -L../lib -lxed
+	gcc -g -std=c99 -o xed_disass xed_disass.c -Iinclude -L../lib -lxed
 
 _xed.so: xed_disass.c xed_wrap.c xed_disass.h
-	gcc -fPIC xed_disass.c xed_wrap.c -I/usr/include/python2.7 -L../lib -lxed -shared -o _xed.so
+	gcc -fPIC -std=c99 xed_disass.c xed_wrap.c -I/usr/include/python2.7 -L../lib -lxed -shared -o _xed.so
 
 xed.py: xed.i _xed.so
-	swig -Wall -python xed.i	 
+	swig -Dinline= -Wall -python xed.i	 
 
 xed_wrap.c: xed.i
-	swig -Wall -python xed.i
+	swig -Dinline= -Wall -python xed.i
 	 
 
 xed-ex1: xed-ex1.o
