@@ -22,11 +22,11 @@ def get_basic_blocks(module, offset_list):
     assert isinstance(offset_list, list)
     ret = []
     for offset in offset_list:
-        ret.append(get_basic_block(offset))
+        ret.append(get_basic_block(module, offset))
     return ret
 
 if __name__ == "__main__":
     e = elf.ELFFile("/home/paszoste/cp/tests/files/test_elf")
-    bb = get_basic_block(e, 0x81c)
+    bb = get_basic_block(e, 0x81f)
     for inst in bb:
-        print inst.get_mnemonic_intel(), xed.terminates_bb(inst) #, _bytes_to_string(inst.get_bytes())
+        print inst.get_mnemonic_intel(), bytes_to_string(inst.get_bytes())
