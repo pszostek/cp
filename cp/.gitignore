@@ -1,1 +1,4 @@
 xed_wrap.c
+xed.py
+*pyc
+_xed.so
