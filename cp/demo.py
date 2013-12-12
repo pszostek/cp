@@ -44,4 +44,4 @@ for inst in bb:
 # get a list of bb's starting at given offsets
 bbs = disass.get_basic_blocks(e, [0x81c, 0x97a, 0x902, 0x832])
 assert(isinstance(bbs, list))
-
+assert(isinstance(bbs[0], xed.inst_list_t))
