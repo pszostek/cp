@@ -1,6 +1,9 @@
 import xed
 import elf
 
+def bytes_to_string(bytes):
+    return ' '.join(map(lambda x: '%02x' % ord(x), bytes))
+
 def get_basic_block(module, offset):
     assert isinstance(module, elf.ELFFile)
     fd = module._fd
@@ -11,10 +14,9 @@ def get_basic_block(module, offset):
     section_end = section_size + section_offset
     to_be_read = section_end - offset
 
-    fd.seek(section_offset)
+    fd.seek(offset)
     bytes = fd.read(to_be_read)
-    print "call"
-    return xed.disassemble_until_bb_end(xed.MODE_X64, bytes, len(bytes))
+    return xed.disassemble_x64_until_bb_end(bytes)
 
 def get_basic_blocks(module, offset_list):
     assert isinstance(offset_list, list)
@@ -24,9 +26,7 @@ def get_basic_blocks(module, offset_list):
     return ret
 
 if __name__ == "__main__":
-    e = elf.ELFFile("/home/paszoste/cp/cp/xed-ex1")
-    print 'bb'
-    bb = get_basic_block(e, 0x14fdc4)
-    print 'iter'
+    e = elf.ELFFile("/home/paszoste/cp/tests/files/test_elf")
+    bb = get_basic_block(e, 0x81c)
     for inst in bb:
-        print inst.get_mnemonic_intel()
+        print inst.get_mnemonic_intel(), xed.terminates_bb(inst) #, _bytes_to_string(inst.get_bytes())

@@ -12,11 +12,25 @@
 // a Python-string instead of a null
 
 
+%typemap(in) (char* data, unsigned int length) {
+  if (!PyString_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a string");
+    return NULL;
+  }
+  $1 = PyString_AsString($input);
+  $2 = PyString_Size($input);
+}
 %{
     #include <assert.h>
     #include "xed_disass.h"
-    extern inst_list_t* disassemble(binary_mode_t mode, char* data, unsigned int length);
-    extern inst_list_t* disassemble_until_bb_end(binary_mode_t mode, char* data, unsigned int length);
+    extern inst_list_t* disassemble_x86(char* data, unsigned int length);
+    extern inst_list_t* disassemble_x64(char* data, unsigned int length);
+    extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int length);
+
+    extern inst_list_t* disassemble_x86_until_bb_end(char* data, unsigned int length);
+    extern inst_list_t* disassemble_x64_until_bb_end(char* data, unsigned int length);
+    extern inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned int length);
+
     extern void print_operand_width(const xed_decoded_inst_t* p);
     static int iter_error = 0;
 %}
@@ -67,6 +81,7 @@
 %include "include/xed-iclass-enum.h"
 %include "include/xed-operand-values-interface.h"
 %include "xed_disass.h"
+
 
 
 %array_class(char, bytesArray)
@@ -130,18 +145,18 @@
 
     %cstring_output_allocate_size(char** bytes, unsigned int* bytes_len, free(*$1));
     void get_bytes(char** bytes, unsigned int* bytes_len) {
-        int idx;
         unsigned int length = xed_decoded_inst_get_length($self);
-        printf("%d length\n", length);
+        // printf("%d length\n", length);
         *bytes  = (char*) malloc(length);
-        printf("malloced\n");
-        for (idx=0; idx < length; ++idx) {
-            //*bytes[idx] = xed_decoded_inst_get_byte($self, idx);
-            *bytes[idx] = '\0';
-            printf("byte\n");
+         // printf("malloced\n");
+        for (int idx=0; idx < length; ++idx) {
+            (*bytes)[idx] = (char)xed_decoded_inst_get_byte($self, idx);
+            //xed_decoded_inst_get_byte($self, idx);
+            //(*bytes)[idx] = '1';
+            // printf("byte\n");
         }
         *bytes_len = length;
-        printf("end\n");
+        // printf("end\n");
     }
 }
 
@@ -162,7 +177,6 @@
         size_t idx;
         PySlice_GetIndices((PySliceObject*)slice, $self->size, &start, &stop, &step);
         size_t ret_size = stop-start;
-        printf("%zu %zu\n", start, stop);
         inst_list_t* ret = (inst_list_t*)malloc(sizeof(inst_list_t));
         inst_list_init_size(ret, ret_size);
         for(idx=start; idx<stop; idx += step) {

@@ -166,7 +166,6 @@ XED_DLL_EXPORT int xed_strncat(char* dst, const char* src, int len);
 #endif
 
 #if defined(__GNUC__)  
-   /* gcc4.2.x has a bug with c99/gnu99 inlining */
 # if __GNUC__ == 4 && __GNUC_MINOR__ == 2
 #  define inline inline
 # else
@@ -183,7 +182,7 @@ XED_DLL_EXPORT int xed_strncat(char* dst, const char* src, int len);
 #  define XED_NOINLINE __attribute__ ((noinline))
 # endif
 #else
-# define inline __inline
+//# define inline __inline
 # if defined(XED_MSVC6)
 #  define XED_NOINLINE 
 # else
