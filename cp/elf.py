@@ -57,6 +57,7 @@ class ELFFile(ELFFile_):
             raise ELFFileError('The file has no % symbol' % name)
         text_section_offset = self._get_text_offset()
         symbol = self.get_symbol_by_name(name)
+        print(symbol.name)
 
         # rewind the file to be at the symbol position
         symbol_size = symbol.entry["st_size"]
