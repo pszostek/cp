@@ -1,6 +1,6 @@
 import unittest
-from xed import (disassemble_x64,
-                 xed_decoded_inst_t,
+from disass import disassemble_x64
+from xed import (xed_decoded_inst_t,
                  xed_decoded_inst_get_iclass,
                  xed_iclass_enum_t2str)
 #xed.xed_iclass_enum_t2str(xed.xed_decoded_inst_get_iclass(inst))
@@ -46,6 +46,12 @@ class TestXED(unittest.TestCase):
         self.assertEqual(inst.get_iclass(), 'SUB')
         self.assertEqual(inst.get_category(), "BINARY")
        # self.assertEqual(inst.get_category(), '')
+        # il1 = inst_list[:5]
+        # il2 = inst_list[5:10]
+        # il1.extend(il2)
+        # self.assertEqual(len(il1), 10)
+       # il1.extend(il2)
+       # self.assertEqual(len(il1), 15)
 
 if __name__ == "__main__":
     unittest.main()

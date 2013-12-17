@@ -1,7 +1,7 @@
 %module xed
 
 %include "carrays.i"
-%array_class(uint8_t, bytearray)
+//%array_class(uint8_t, bytearray)
 %include "exception.i"
 %include "stdint.i"
 %include "typemaps.i"
@@ -23,15 +23,14 @@
 %{
     #include <assert.h>
     #include "xed_disass.h"
-    extern inst_list_t* disassemble_x86(char* data, unsigned int length);
-    extern inst_list_t* disassemble_x64(char* data, unsigned int length);
-    extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int length);
+    extern inst_list_t* _disassemble_x86(char* data, unsigned int length, uint64_t base);
+    extern inst_list_t* _disassemble_x64(char* data, unsigned int length, uint64_t base);
+    extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int lengt, uint64_t base);
 
-    extern inst_list_t* disassemble_x86_until_bb_end(char* data, unsigned int length);
-    extern inst_list_t* disassemble_x64_until_bb_end(char* data, unsigned int length);
-    extern inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned int length);
+    extern inst_list_t* _disassemble_x86_until_bb_end(char* data, unsigned int length, uint64_t base);
+    extern inst_list_t* _disassemble_x64_until_bb_end(char* data, unsigned int length, uint64_t base);
+    extern inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned int length, uint64_t base);
 
-    extern void print_operand_width(const xed_decoded_inst_t* p);
     static int iter_error = 0;
 %}
 
@@ -59,7 +58,7 @@
 
     xed_decoded_inst_t* next() {
         if($self->pos < $self->list->size) {
-            return &($self->list->inst_array[$self->pos++]);
+            return $self->list->inst_array[$self->pos++];
         }
         iter_error = 1;
         return NULL;
@@ -79,10 +78,22 @@
 %include "include/xed-inst.h"
 %include "include/xed-category-enum.h"
 %include "include/xed-iclass-enum.h"
-%include "include/xed-operand-values-interface.h"
+%include "include/xed-operand-storage.h"
+//%include "include/xed-operand-accessors.h"
+
+%newobject _disassemble_x64;
+%newobject _disassemble_x86;
+%newobject _disassemble;
+
+%newobject _disassemble_x64_until_bb_end;
+%newobject _disassemble_x86_until_bb_end;
+%newobject _disassemble_until_bb_ned;
+
+%typemap(newfree) inst_list_t* {
+    inst_list_delete($1);
+}
+
 %include "xed_disass.h"
-
-
 
 %array_class(char, bytesArray)
 %extend xed_decoded_inst_t {
@@ -119,6 +130,10 @@
         return xed_decoded_inst_noperands($self);
     }
 
+    unsigned int get_operand_length(unsigned int idx) {
+        return xed_decoded_inst_operand_length($self, idx);
+    }
+
     const char* get_iclass() {
         char buffer[32];
         xed_iclass_enum_t iclass = xed_decoded_inst_get_iclass((const xed_decoded_inst_t*)$self);
@@ -143,17 +158,42 @@
         return xed_decoded_inst_get_length($self);
     }
 
+    const unsigned int get_operand_width() {
+        return xed_decoded_inst_get_operand_width($self)>>3; //divide by 8
+    }
+
+    int get_branch_displacement() {
+        return xed_decoded_inst_get_branch_displacement($self);
+    }
+
+    unsigned int get_immediate_width() {
+        return xed_decoded_inst_get_immediate_width($self);
+    }
+
+    int32_t get_signed_immediate() {
+        return xed_decoded_inst_get_signed_immediate($self);
+    }
+
+    uint64_t get_unsigned_immediate() {
+        return xed_decoded_inst_get_unsigned_immediate($self);
+    }
+
+    uint8_t get_second_immediate() {
+        return xed_decoded_inst_get_second_immediate($self);
+    }
+
+
+    // unsigned int get_memory_displacement() {
+    //     return xed_decoded_inst_get_memory_displacement($self);
+    // }
+
+
     %cstring_output_allocate_size(char** bytes, unsigned int* bytes_len, free(*$1));
     void get_bytes(char** bytes, unsigned int* bytes_len) {
         unsigned int length = xed_decoded_inst_get_length($self);
-        // printf("%d length\n", length);
         *bytes  = (char*) malloc(length);
-         // printf("malloced\n");
         for (int idx=0; idx < length; ++idx) {
             (*bytes)[idx] = (char)xed_decoded_inst_get_byte($self, idx);
-            //xed_decoded_inst_get_byte($self, idx);
-            //(*bytes)[idx] = '1';
-            // printf("byte\n");
         }
         *bytes_len = length;
         // printf("end\n");
@@ -168,10 +208,11 @@
             return NULL;
         }
         if(i < 0) {
-            return &($self->inst_array[$self->size+i]);
+            return $self->inst_array[$self->size+i]; //i is negative
         }
-        return &($self->inst_array[i]);
+        return $self->inst_array[i];
     }
+
     inst_list_t* __getitem__(PyObject* slice) {
         Py_ssize_t start, stop, step;
         size_t idx;
@@ -184,8 +225,93 @@
         }
         return ret;
     }
+
+    int is_finished_by_call() {
+        return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL);
+    }
+
+    int is_finished_by_jump() {
+        return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_COND_BR)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_UNCOND_BR)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL);
+    }
+
+    int is_finished_by_cond_branch() {
+        return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_COND_BR);
+    }
+
+    int is_finished_by_uncond_branch() {
+        return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_UNCOND_BR)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL);
+    }
+
+    int is_finished_by_direct_branch() {
+        if(!inst_list_t_is_finished_by_jump($self)) {
+            return 0;
+        }
+        unsigned int i, noperands;
+        xed_decoded_inst_t* xedd = $self->inst_array[$self->size-1];
+        const xed_inst_t* xi = xed_decoded_inst_inst(xedd);
+        for( i=0; i < noperands ; i++) { 
+            const xed_operand_t* op = xed_inst_operand(xi,i);
+            xed_operand_enum_t op_name = xed_operand_name(op);
+            if(op_name >= XED_OPERAND_REG0 && op_name <= XED_OPERAND_BASE1) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    int is_finished_by_indirect_branch() {
+        if(!inst_list_t_is_finished_by_jump($self)) {
+            return 0;
+        }
+        unsigned int i, noperands;
+        xed_decoded_inst_t* xedd = $self->inst_array[$self->size-1];
+        const xed_inst_t* xi = xed_decoded_inst_inst(xedd);
+        for( i=0; i < noperands ; i++) { 
+            const xed_operand_t* op = xed_inst_operand(xi,i);
+            xed_operand_enum_t op_name = xed_operand_name(op);
+            if(op_name >= XED_OPERAND_REG0 && op_name <= XED_OPERAND_BASE1) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    uint64_t length() {
+        uint64_t ret = 0;
+        for(size_t idx=0; idx<inst_list_size($self); ++idx) {
+            ret += xed_decoded_inst_get_length($self->inst_array[idx]);
+        }
+        return ret;
+    }
+
+    int64_t get_jump_address() {
+        uint64_t block_length = inst_list_t_length($self);
+        xed_decoded_inst_t* last_inst = $self->inst_array[$self->size-1];
+        int64_t branch_displ = xed_decoded_inst_get_branch_displacement(last_inst);
+        if(branch_displ != 0) {
+            return branch_displ + block_length + $self->base;
+        } else {
+            return 0;
+        }
+    }
+/*
+    inst_list_t* extend(inst_list_t* rhs) {
+        inst_list_extend($self, rhs);
+        return $self;
+    }
+
+    inst_list_t* __add__(inst_list_t* rhs) {
+        inst_list_extend($self, rhs);
+        return $self;
+    }
+*/
+
     struct inst_list_iter* __iter__() {
-        struct inst_list_iter* ret = (struct inst_list_iter*)malloc(sizeof(struct inst_list_iter)); ret->list = $self;
+        struct inst_list_iter* ret = (struct inst_list_iter*)malloc(sizeof(struct inst_list_iter));
+        ret->list = $self;
         ret->pos = 0;
         return ret;
     }
