@@ -8,6 +8,7 @@ e = elf.ELFFile("/home/paszoste/cp/tests/files/test_elf")
 
 for section in e.iter_sections():
     print section.name
+    print section.header
 
 for function in e.iter_functions():
     print function
@@ -16,7 +17,7 @@ for symbol in e.iter_symbols():
     print symbol.name, symbol.entry
 
 fav_num_text = e.get_symbol_text('_ZN6Person14favoriteNumberEv')
-fav_num_inst = xed.disassemble_x64(fav_num_text)
+fav_num_inst = disass.disassemble_x64(fav_num_text)
 
 # slices, indexing
 print fav_num_inst[0]
@@ -34,11 +35,11 @@ inst.get_category()
 
 # get bb starting from given offset, objdump will report 0x40081c
 bb = disass.get_basic_block(e, 0x81c)
-print len(bb)
+print "BB length", len(bb)
 
 # iteration over a list of instructions
 for inst in bb:
-    print inst, disass.bytes_to_string(inst.get_bytes())
+    print inst, len(inst.get_bytes()), disass.bytes_to_string(inst.get_bytes())
     # these bytes are sometimes corrupted for an uknown reason
 
 # get a list of bb's starting at given offsets

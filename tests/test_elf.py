@@ -31,9 +31,9 @@ class TestELFFile(unittest.TestCase):
             self.assertTrue(section_name in section_names)
 
     def test_get_symbol_text(self):
-        import xed
+        import disass
         text = self.elf.get_symbol_text("main")
-        inst_list = xed.disassemble_x64(text)
+        inst_list = disass.disassemble_x64(text)
         self.assertEqual(len(inst_list), 66)
 
     def test_get_symbol_text2(self):
