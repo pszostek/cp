@@ -1,20 +1,15 @@
 #!/usr/bin/env python
+
 from PySide.QtGui import *
 from PySide.QtCore import *
 from PySide.QtUiTools import QUiLoader
 import sys
-import numpy as numpy
+import numpy as np
 from pandas import *
 import random
+import time
 randn = np.random.randn
 
-numbers = "zero one two three four five six seven eight nine".split()
-numbers.extend("ten eleven twelve thirteen fourteen fifteen sixteen".split())
-
-items = []
-for row_idx in xrange(0, 4000):
-    items.append(tuple([int(random.random()*10000), [random.random()*100//1 for _ in xrange(20)]]))
-df = DataFrame.from_items(items, orient='index', columns=numbers)
 
 class UiLoader(QUiLoader):
     def __init__(self, baseinstance):
@@ -48,36 +43,49 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         loadUi('pandas.ui', self)
         self.df = df
+        self._set_table()
 
-        self._set_data()
 
-
-    def _set_data(self):
+    def _set_table(self):
         row_count = self.df.shape[0]
         column_count = len(self.df.columns)
         self.tableWidget.setRowCount(row_count)
-        self.tableWidget.setColumnCount(column_count)
-        self.tableWidget.setHorizontalHeaderLabels(df.columns)
+        self.tableWidget.setColumnCount(column_count+1)
+        self.tableWidget.setHorizontalHeaderLabels([''] + list(self.df.columns))
         self.tableWidget.setShowGrid(True)
+        self.tableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
+
+        grayBrush = QBrush(Qt.lightGray)
+        start_time = time.time()
         for row_idx, row in enumerate(self.df.iterrows()):
+            indexItem = QTableWidgetItem(str(row[0]))
+            indexItem.setFlags(indexItem.flags() ^ Qt.ItemIsEditable)
+            indexItem.setBackground(grayBrush)
+            self.tableWidget.setItem(row_idx, 0, indexItem)
             for col_idx, column_name in enumerate(self.df.columns):
                 item = QTableWidgetItem(str(row[1][col_idx]))
-                self.tableWidget.setItem(row_idx, col_idx, item)
-           # for col_idx in xrange(0,20):
-           #     item = QTableWidgetItem("1")
-           #     self.tableWidget.setItem(row_idx, col_idx, item)
-      #  print(self.tableWidget.data(self.model.createIndex(1, 1, self.tableWidget.invisibleRootItem()), Qt.DisplayRole))
+                item.setFlags(item.flags() ^ Qt.ItemIsEditable)
+                self.tableWidget.setItem(row_idx, col_idx+1, item)
+        end_time = time.time()
+        self.statusBar().showMessage("Inserted data in %g" % (end_time - start_time))
         self.tableWidget.setSortingEnabled(True)
-        self.tableWidget.setVerticalHeaderLabels(map(str, self.df.index.values))
+        self.tableWidget.verticalHeader().hide()
         self.tableWidget.show()
 
 def main(argv=None):
     if argv is None:
         argv = sys.argv
+    numbers = "zero one two three four five six seven eight nine".split()
+    numbers.extend("ten eleven twelve thirteen fourteen fifteen sixteen".split())
+
+    items = []
+    for row_idx in xrange(0, 4000):
+        items.append((int(random.random()*10000), [random.random()*100//1 for _ in xrange(20)]))
+    df = DataFrame.from_items(items, orient='index', columns=numbers)
 
     app = QApplication(argv)
     window = MainWindow(df)
-    window.show()
+    window.showMaximized()
     app.exec_()
 
 
