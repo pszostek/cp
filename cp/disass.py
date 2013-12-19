@@ -28,12 +28,17 @@ def get_basic_block(module, offset):
     section_size = section.header['sh_size']
     section_end = section_size + section_offset
 
-    fd.seek(offset)
     to_be_read = section_end - offset
- 
-    bytes = fd.read(to_be_read)
-    return disassemble_x64_until_bb_end(bytes, base=offset)
-    # chunk_size = 64
+    #bytes = fd.read(to_be_read)
+    chunk_size = 64 
+    while True:
+        fd.seek(offset)
+        bytes = fd.read(chunk_size)
+        bb = disassemble_x64_until_bb_end(bytes, base=offset)
+        if not bb.is_finished_by_branch():
+            chunk_size *= 2
+        else:
+            return bb 
     # cur = offset
 
     # ret = xed.inst_list_t()
