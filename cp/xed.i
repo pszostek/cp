@@ -230,10 +230,14 @@
         return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL);
     }
 
-    int is_finished_by_jump() {
+    int is_finished_by_branch() {
         return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_COND_BR)
             || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_UNCOND_BR)
-            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL);
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_SYSRET)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_SYSCALL)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_SYSTEM)
+            || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_RET);
     }
 
     int is_finished_by_cond_branch() {
@@ -245,8 +249,12 @@
             || (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_CALL);
     }
 
+    int is_finished_by_ret() {
+        return (xed_decoded_inst_get_category($self->inst_array[$self->size-1]) == XED_CATEGORY_RET);
+    }
+
     int is_finished_by_direct_branch() {
-        if(!inst_list_t_is_finished_by_jump($self)) {
+        if(!inst_list_t_is_finished_by_branch($self)) {
             return 0;
         }
         unsigned int i, noperands;
@@ -263,7 +271,7 @@
     }
 
     int is_finished_by_indirect_branch() {
-        if(!inst_list_t_is_finished_by_jump($self)) {
+        if(!inst_list_t_is_finished_by_branch($self)) {
             return 0;
         }
         unsigned int i, noperands;
