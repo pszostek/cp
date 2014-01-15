@@ -24,35 +24,49 @@ def get_inst_lists_for_basic_blocks(bb_dict):
     bb_list: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
     returns a pandas.DataFrame containing disassembled instructions in rows and indexed by DSO path and BB offset
         for instance:
-                                 XED_ICLASS  XED_ISA_SET  XED_CATEGORY 
+                                  inst_length   XED_ICLASS  XED_ISA_SET  XED_CATEGORY 
 dso_name  bb_offset inst_offset                                          
-libc.so.6 312       0              1.073849    -1.042593      0.602416   
-                    1              0.988712    -1.896690     -0.260631   
-                    4             -1.014164    -0.030036      0.350817   
-                    6             -0.515853    -0.696777      0.777544   
-                    7             -0.910810    -0.366494      0.841812   
-                    3             -0.470408     0.321503      0.954833 
+libc.so.6 312       0                   1           1           1             6   
+                    1                   3           0           5             2   
+                    4                   4           23          7             3   
+                    6                   3           43          3             7   
+                    7                   3           54          4             8   
+                    3                   4           56          2             9 
     """
     import pandas as pd
+    import numpy
     result_list = []
     prev_dso_path = None
+    index_tuples = []
     for dso_path, offset_list in bb_dict.items():
         if prev_dso_path != dso_path:
             elffile = elf.ELFFile(dso_path)
-        for offset in offset_list:
-            bb = get_basic_block(elffile, offset)
+        for bb_offset in offset_list:
+            bb = get_basic_block(elffile, bb_offset)
             offset_inside_bb = 0
             for inst in bb:
                 inst_length = inst.get_length()
-                result_list.append((dso_path,
-                                    offset,
-                                    offset_inside_bb,
-                                    inst.get_iclass_code(),
-                                    inst.get_isa_set_code(),
-                                    inst.get_category_code()))
+                index_tuples.append((dso_path,
+                                    bb_offset,
+                                    offset_inside_bb))
+                result_list.append((inst_length,
+                                    inst.get_iclass(),
+                                    inst.get_isa_set(),
+                                    inst.get_category(),
+                                    xed.xed_decoded_inst_noperands(inst)))
                 offset_inside_bb += inst_length
         prev_dso_path = dso_path
-    return pd.DataFrame
+    index = pd.MultiIndex.from_tuples(index_tuples, names=['dso_path',
+                                                           'bb_offset',
+                                                           'inst_offset'])
+    ret_data_frame = pd.DataFrame(result_list,
+                                  index=index,
+                                  columns=['inst_length',
+                                           'XED_ICLASS',
+                                           'XED_ISA_SET',
+                                           'XED_CATEGORY',
+                                           'noperands'])
+    return ret_data_frame
 
 
 def get_basic_block(module, offset):
@@ -64,18 +78,18 @@ def get_basic_block(module, offset):
     section_size = section.header['sh_size']
     section_end = section_size + section_offset
 
-    to_be_read = section_end - offset
-    #bytes = fd.read(to_be_read)
     chunk_size = 64 
     while True:
         fd.seek(offset)
         bytes = fd.read(chunk_size)
         bb = disassemble_x64_until_bb_end(bytes, base=offset)
-        if not bb.is_finished_by_branch():
+       # print('base %d, ifbb %d' % (bb.base, bb.is_finished_by_branch()))
+        if bb.size == 0:
             chunk_size *= 2
+        elif not bb.is_finished_by_branch():
+            chunk_size += 2
         else:
             return bb 
-    # cur = offset
 
     # ret = xed.inst_list_t()
     # while cur < section_end:
