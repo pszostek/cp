@@ -18,6 +18,42 @@ def disassemble_x64_until_bb_end(data, base=0):
     assert isinstance(data, basestring)
     return xed._disassemble_x64_until_bb_end(data, base)
 
+def get_inst_lists_for_basic_blocks(bb_dict):
+    """ Function that disassembles basic blocks at given offsets
+
+    bb_list: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
+    returns a pandas.DataFrame containing disassembled instructions in rows and indexed by DSO path and BB offset
+        for instance:
+                                 XED_ICLASS  XED_ISA_SET  XED_CATEGORY 
+dso_name  bb_offset inst_offset                                          
+libc.so.6 312       0              1.073849    -1.042593      0.602416   
+                    1              0.988712    -1.896690     -0.260631   
+                    4             -1.014164    -0.030036      0.350817   
+                    6             -0.515853    -0.696777      0.777544   
+                    7             -0.910810    -0.366494      0.841812   
+                    3             -0.470408     0.321503      0.954833 
+    """
+    import pandas as pd
+    result_list = []
+    prev_dso_path = None
+    for dso_path, offset_list in bb_dict.items():
+        if prev_dso_path != dso_path:
+            elffile = elf.ELFFile(dso_path)
+        for offset in offset_list:
+            bb = get_basic_block(elffile, offset)
+            offset_inside_bb = 0
+            for inst in bb:
+                inst_length = inst.get_length()
+                result_list.append((dso_path,
+                                    offset,
+                                    offset_inside_bb,
+                                    inst.get_iclass_code(),
+                                    inst.get_isa_set_code(),
+                                    inst.get_category_code()))
+                offset_inside_bb += inst_length
+        prev_dso_path = dso_path
+    return pd.DataFrame
+
 
 def get_basic_block(module, offset):
     assert isinstance(module, elf.ELFFile)

@@ -79,6 +79,7 @@
 %include "include/xed-category-enum.h"
 %include "include/xed-iclass-enum.h"
 %include "include/xed-operand-storage.h"
+%include "include/xed-isa-set-enum.h"
 //%include "include/xed-operand-accessors.h"
 
 %newobject _disassemble_x64;
@@ -132,6 +133,16 @@
 
     unsigned int get_operand_length(unsigned int idx) {
         return xed_decoded_inst_operand_length($self, idx);
+    }
+
+    const char* get_isa_set() {
+        char buffer[32];
+        xed_isa_set_enum_t isa_set = xed_decoded_inst_get_isa_set((const xed_decoded_inst_t*)$self);
+        return xed_isa_set_enum_t2str(isa_set);
+    }
+
+    const xed_isa_set_enum_t get_isa_set_code() {
+        return xed_decoded_inst_get_isa_set((const xed_decoded_inst_t*)$self);
     }
 
     const char* get_iclass() {
