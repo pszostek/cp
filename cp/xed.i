@@ -108,6 +108,11 @@
     // for python::xed.xed_decoded_inst_dump()
     %cstring_output_maxsize(char* buf, int buflen);
 
+    void dump_operand_info(char** buffer) {
+        *buffer = (char*) malloc(512);
+        xed_operand_values_dump(xed_decoded_inst_operands($self), *buffer, 512);
+    }
+
     void get_mnemonic(char** buffer) {
         *buffer = (char*) malloc(512);
         xed_decoded_inst_dump($self, *buffer, 512);
@@ -146,7 +151,6 @@
     }
 
     const char* get_iclass() {
-        char buffer[32];
         xed_iclass_enum_t iclass = xed_decoded_inst_get_iclass((const xed_decoded_inst_t*)$self);
         return xed_iclass_enum_t2str(iclass);
     }
@@ -156,7 +160,6 @@
     }
 
     const char* get_category() {
-        char buffer[32];
         xed_category_enum_t category = xed_decoded_inst_get_category((const xed_decoded_inst_t*)$self);
         return xed_category_enum_t2str(category);
     }
@@ -204,10 +207,12 @@
         unsigned int length = xed_decoded_inst_get_length($self);
         *bytes  = (char*) malloc(length);
         for (int idx=0; idx < length; ++idx) {
-            (*bytes)[idx] = (char)xed_decoded_inst_get_byte($self, idx);
+            unsigned char byte = (char)xed_decoded_inst_get_byte($self, idx);
+            printf("byte %d\n", byte);
+            (*bytes)[idx] = byte;
         }
         *bytes_len = length;
-        // printf("end\n");
+        printf("%d\n", length);
     }
 }
 
