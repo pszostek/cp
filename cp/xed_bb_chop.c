@@ -16,6 +16,11 @@ int terminates_bb(xed_decoded_inst_t* inst) {
 
 }
 
+typedef struct {
+  uint64_t addr;
+  
+} bb_t;
+
 int main(int argc, char** argv) {
     char* buf;
     size_t file_length;
@@ -23,7 +28,7 @@ int main(int argc, char** argv) {
     size_t idx;
     FILE* fp = fopen(argv[1], "r");
     
-    uint64_t *bbs = malloc(sizeof(uint64_t)*1000000);
+    uint64_t *bbs = calloc(sizeof(uint64_t), 1000000);
 
     if(fp != NULL) {
       fseek(fp, 0, SEEK_END);
@@ -57,7 +62,8 @@ int main(int argc, char** argv) {
     xed_error_enum_t xed_error;
     
     xed_tables_init();
-    
+
+    bbs[j++] = start;    
     while(stop<=text_base+text_len) {
       printf("%d ", i-start);
       xed_decoded_inst_zero_set_mode(xedd, &dstate);	// WHY?
@@ -70,8 +76,8 @@ int main(int argc, char** argv) {
               if(terminates_bb(xedd)) {
                   jaddr = xed_decoded_inst_get_branch_displacement(xedd) + i + 1;
                   printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, i+1);
-                  // TODO: add targets to bbs list
                   bbs[j++] = i+1;
+                  bbs[j++] = jaddr;
               }
               start = stop;
               stop = start + 1;
@@ -87,5 +93,16 @@ int main(int argc, char** argv) {
     }
 
     free(buf);
+    
+    int qcomp(const void *a, const void *b) { return *(uint64_t *)a-*(uint64_t *)b; }
+    qsort(bbs, j, sizeof(uint64_t), qcomp);
+    int k = 0, ctr = 0;
+    for (k=0; k<j; k++) {
+      if(bbs[k] != bbs[ctr]) bbs[++ctr] = bbs[k];
+    }
+    printf("\nGathered %d addresses\n", ctr);
+    for (k=0; k<ctr+1; k++) {
+      printf("\t0x%x\n", bbs[k]);
+    }
     return 0;
 }
