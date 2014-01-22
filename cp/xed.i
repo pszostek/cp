@@ -23,7 +23,6 @@
 %{
     #include <assert.h>
     #include "xed_disass.h"
-    extern npy_uint64 np_int64_to_c_uint64(PyObject* obj);
     extern inst_list_t* _disassemble_x86(char* data, unsigned int length, uint64_t base);
     extern inst_list_t* _disassemble_x64(char* data, unsigned int length, uint64_t base);
     extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int lengt, uint64_t base);
