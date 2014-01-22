@@ -21,7 +21,7 @@ def disassemble_x64_until_bb_end(data, base=0):
 def get_inst_lists_for_basic_blocks(bb_dict):
     """ Function that disassembles basic blocks at given offsets
 
-    bb_list: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
+    bb_dict: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
     returns a pandas.DataFrame containing disassembled instructions in rows and indexed by DSO path and BB offset
         for instance:
                                   inst_length   XED_ICLASS  XED_ISA_SET  XED_CATEGORY 
@@ -33,8 +33,11 @@ libc.so.6 312       0                   1           1           1             6
                     7                   3           54          4             8   
                     3                   4           56          2             9 
     """
+    assert isinstance(bb_dict, dict)
+    from collections import namedtuple
     import pandas as pd
     import numpy
+    Operand = namedtuple('Operand', ['type', 'width', 'name', 'action', 'elem'], verbose=False)
     result_list = []
     prev_dso_path = None
     index_tuples = []
@@ -46,6 +49,27 @@ libc.so.6 312       0                   1           1           1             6
             offset_inside_bb = 0
             for inst in bb:
                 inst_length = inst.get_length()
+                noperands = xed.xed_decoded_inst_noperands(inst)
+                unaligned = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_UNALIGNED)
+                simd_scalar = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_SCALAR)
+                packed_alignment = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_PACKED_ALIGNMENT)
+                gather = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_GATHER)
+                prefetch = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_PREFETCH)
+                scalable = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SCALABLE)
+
+                inst_inst = xed.xed_decoded_inst_inst(inst)
+                operands = []
+                for idx in xrange(0,2):
+                    if idx >= noperands:
+                        operands.append(Operand(None, None, None, None, None))
+                    else:
+                        xed_op = xed.xed_inst_operand(inst_inst, idx)
+                        op = Operand(type=xed.xed_operand_type_enum_t2str(xed.xed_operand_type(xed_op)),
+                                     width=xed.xed_operand_width_enum_t2str(xed.xed_operand_width(xed_op)),
+                                     name=xed.xed_operand_enum_t2str(xed.xed_operand_name(xed_op)),
+                                     action=xed.xed_operand_action_enum_t2str(xed.xed_operand_rw(xed_op)),
+                                     elem=xed.xed_operand_element_type_enum_t2str(xed.xed_decoded_inst_operand_element_type(inst, idx)))
+                        operands.append(op)
                 index_tuples.append((dso_path,
                                     bb_offset,
                                     offset_inside_bb))
@@ -53,24 +77,61 @@ libc.so.6 312       0                   1           1           1             6
                                     inst.get_iclass(),
                                     inst.get_isa_set(),
                                     inst.get_category(),
-                                    xed.xed_decoded_inst_noperands(inst)))
+                                    inst.get_extension(),
+                                    noperands,
+                                    unaligned,
+                                    simd_scalar,
+                                    packed_alignment,
+                                    gather,
+                                    prefetch,
+                                    scalable,
+                                    operands[0].type,
+                                    operands[0].width,
+                                    operands[0].name,
+                                    operands[0].action,
+                                    operands[0].elem,
+                                    operands[1].type,
+                                    operands[1].width,
+                                    operands[1].name,
+                                    operands[1].action,
+                                    operands[1].elem))
                 offset_inside_bb += inst_length
         prev_dso_path = dso_path
+
     index = pd.MultiIndex.from_tuples(index_tuples, names=['dso_path',
                                                            'bb_offset',
                                                            'inst_offset'])
+
     ret_data_frame = pd.DataFrame(result_list,
                                   index=index,
                                   columns=['inst_length',
                                            'XED_ICLASS',
                                            'XED_ISA_SET',
                                            'XED_CATEGORY',
-                                           'noperands'])
+                                           'XED_EXTENSION',
+                                           'noperands',
+                                           'unaligned',
+                                           'simd_scalar',
+                                           'packed_alignment',
+                                           'gather',
+                                           'prefetch',
+                                           'scalable',
+                                           'op0.type',
+                                           'op0.width',
+                                           'op0.name',
+                                           'op0.action',
+                                           'op0.elem',
+                                           'op1.type',
+                                           'op1.width',
+                                           'op1.name',
+                                           'op1.action',
+                                           'op1.elem'])
     return ret_data_frame
 
 
 def get_basic_block(module, offset):
     assert isinstance(module, elf.ELFFile)
+   # assert isinstance(offset, int)
     fd = module._fd
 
     section = module.get_section_by_offset(offset)
@@ -104,7 +165,7 @@ def get_basic_block(module, offset):
     # return ret
 
 def get_basic_blocks(module, offset_list):
-    assert isinstance(offset_list, list)
+    #assert isinstance(offset_list, collections.Iterable), "Expected an iterable object, got %s" % type(offset_list)
     ret = []
     for offset in offset_list:
         ret.append(get_basic_block(module, offset))
