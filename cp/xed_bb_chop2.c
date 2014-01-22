@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
+    // TODO: need to disasm both text and plt
     uint64_t text_base = 0x2c00, start = text_base, stop = start + 1, text_len=0x1039c;
     uint64_t jaddr = 0;
     int i = start, j = 0, m = 0;
@@ -80,21 +81,18 @@ int main(int argc, char** argv) {
       switch(xed_error) {
           case XED_ERROR_NONE:
               if(terminates_bb(xedd)) {
-                  jaddr = xed_decoded_inst_get_branch_displacement(xedd) + i + 1;
+                  jaddr = xed_decoded_inst_get_branch_displacement(xedd) ?
+                      xed_decoded_inst_get_branch_displacement(xedd) + i + 1 :
+                      0;
                   printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, i+1);
-                  // all wrong. what if an existing bb is split into two by a target from some jump?
-                  // TODO: keep one list of basic blocks just with addresses
-                  // 	   keep another with jump properties and targets
-                  //       after sorting both and getting rid of duplicates, fill in the first list using data from the second
-                  //	   finally, fill in data on byte and instruction lengths                  
                   bbs[j++].addr = i+1;
-                  bbs[j++].addr = jaddr;
+                  if (jaddr) bbs[j++].addr = jaddr;
 
                   jumps[m].addr = start;
                   jumps[m].target = jaddr;
                   jumps[m].isjump = 1;
                   jumps[m].conditional = (xed_decoded_inst_get_category(xedd) == XED_CATEGORY_COND_BR);
-//                  jumps[m].direct = (conditional and there is a jump address)
+                  jumps[m].direct = jumps[m].conditional && (jaddr > 0);
                   m++;
               }
               start = stop;
@@ -132,17 +130,25 @@ int main(int argc, char** argv) {
           bbs[k].target = jumps[ctr].target;
           bbs[k].isjump = jumps[ctr].isjump;
           bbs[k].conditional = jumps[ctr].conditional;
+          bbs[k].direct = jumps[ctr].direct;
           ctr++;
       }
     }
 
     printf("\nGathered %d addresses and %d jumps\n", num_bbs, num_jumps);
+    printf("\t%16s %3s   %16s %3s %3s\n",
+        "Address",
+        "BRA",
+        "Target",
+        "CON",
+        "DIR");        
     for (k=0; k<num_bbs+1; k++) {
-      printf("\t0x%x %3s ->%16x %3s\n", 
+      printf("\t%16p %3s ->%16x %3s %3s\n", 
           bbs[k].addr, 
           bbs[k].isjump ? "YES" : " NO", 
           bbs[k].target,
-          bbs[k].conditional ? "YES" : " NO");
+          bbs[k].conditional ? "YES" : " NO",
+          bbs[k].direct ? "YES" : " NO");
     }
     return 0;
 }
