@@ -6,6 +6,7 @@ from collections import namedtuple
 from demangle import demangle
 from elftools.common.py3compat import bytes2str
 from elftools.elf.elffile import ELFFile as ELFFile_
+from elftools.elf.sections import Section
 
 Func = namedtuple("Func", ["name", "mangled_name", "offset", "size"])
 
@@ -21,6 +22,61 @@ class ELFFile(ELFFile_):
 
     def __del__(self):
         self._fd.close()
+
+    def get_offset_for_virtual_address(self, vaddr):
+        correct_segment = None
+        for segment in self.iter_segments():
+            if (segment['p_vaddr'] >= vaddr and
+                vaddr < segment['p_vaddr'] + segment['p_filesz']):
+                correct_segment = segment
+                break
+
+        if correct_segment is not None:
+            correct_section = None
+            for section in self.iter_sections():
+                if correct_segment.section_in_segment(section):
+                    correct_section = section
+                    break
+            if correct_section is not None:
+                offset_in_segment = vaddr - correct_segment['p_vaddr']
+                return correct_section['sh_offset'] + offset_in_segment
+            else:
+                return None
+        else:
+            return None
+
+    def get_virtual_address_for_offset(self, offset):
+        section = self.get_section_by_offset(offset)
+        offset_from_section_start = offset - section['sh_offset']
+        section_vaddr = self.get_section_virtual_address(section)
+        return section_vaddr + offset_from_section_start
+
+    def get_section_by_offset(self, offset):
+        for section in self.iter_sections():
+            if offset >= section['sh_offset'] and offset < section['sh_offset'] + section['sh_size']:
+                return section
+        return None
+
+    def get_segment_by_virtual_address(self, vaddr):
+        for segment in self.iter_segments():
+            if segment['p_vaddr'] >= vaddr and vaddr < segment['p_vaddr'] + segment['p_filesz']:
+                return segment
+        return None
+
+    def get_section_by_virtual_address(self, vaddr):
+        segment = self.get_segment_by_virtual_address(vaddr)
+        for section in self.iter_section():
+            if segment.section_in_segment(section):
+                return section
+        return None
+
+    def get_section_virtual_address(self, section):
+        assert isinstance(section, Section)
+        matching_segments = []
+        for segment in self.iter_segments():
+            if segment.section_in_segment(section):
+                matching_segments.append(segment)
+        return max(matching_segments, key=lambda s: s['p_filesz'])
 
     def get_symbol_by_name(self, name):
         for symbol in self.iter_symbols():
