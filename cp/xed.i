@@ -23,6 +23,7 @@
 %{
     #include <assert.h>
     #include "xed_disass.h"
+    extern npy_uint64 np_int64_to_c_uint64(PyObject* obj);
     extern inst_list_t* _disassemble_x86(char* data, unsigned int length, uint64_t base);
     extern inst_list_t* _disassemble_x64(char* data, unsigned int length, uint64_t base);
     extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int lengt, uint64_t base);
@@ -80,6 +81,13 @@
 %include "include/xed-iclass-enum.h"
 %include "include/xed-operand-storage.h"
 %include "include/xed-isa-set-enum.h"
+%include "include/xed-attribute-enum.h"
+%include "include/xed-operand-type-enum.h"
+%include "include/xed-operand-width-enum.h"
+%include "include/xed-operand-enum.h"
+%include "include/xed-operand-action-enum.h"
+%include "include/xed-operand-element-type-enum.h"
+
 //%include "include/xed-operand-accessors.h"
 
 %newobject _disassemble_x64;
@@ -140,8 +148,16 @@
         return xed_decoded_inst_operand_length($self, idx);
     }
 
+    const char* get_extension() {
+        xed_extension_enum_t extension = xed_decoded_inst_get_extension((const xed_decoded_inst_t*)$self);
+        return xed_extension_enum_t2str(extension);
+    }
+
+    const xed_extension_enum_t get_extension_code() {
+        return xed_decoded_inst_get_extension((const xed_decoded_inst_t*)$self);
+    }
+
     const char* get_isa_set() {
-        char buffer[32];
         xed_isa_set_enum_t isa_set = xed_decoded_inst_get_isa_set((const xed_decoded_inst_t*)$self);
         return xed_isa_set_enum_t2str(isa_set);
     }
