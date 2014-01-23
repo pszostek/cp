@@ -1,0 +1,4 @@
+get .text start (VA) and size:
+	
+	readelf -W --sections /bin/ls | grep .text | awk '{print $4 " " $6}'
+
