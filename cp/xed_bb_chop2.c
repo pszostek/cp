@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
     strtab = (char *)elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
     for (i=0; i<elf_hdr->e_shnum; i++) {
 //#ifdef DEBUG
-        printf("\t%s %x %d\n",
+        printf("\t%-25s %-16p %-d\n",
             &strtab[elf_shdr[i].sh_name],
             elf_shdr[i].sh_offset,
             elf_shdr[i].sh_size);
@@ -86,8 +86,8 @@ int main(int argc, char** argv) {
     }
     close(fd);
     
-    bb_t *bbs = calloc(sizeof(bb_t), fsize/5);
-    bb_t *jumps = calloc(sizeof(bb_t), fsize/5);
+    bb_t *bbs = calloc(sizeof(bb_t), fsize/4);
+    bb_t *jumps = calloc(sizeof(bb_t), fsize/4);
     uint16_t *ilens = calloc(sizeof(uint16_t), fsize);
     
     if(fp != NULL) {
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    // TODO: need to disasm both text and plt, possibly also .init and .fini
+    // TODO: need to disasm all AX sections, so text, plt, .init, .fini and anything else
 //    uint64_t text_base = 0x2c00, start = text_base, stop = start + 1, text_len=0x1039c;
     uint64_t text_base = elf_text_base, start = text_base, stop = start + 1, text_len=elf_text_size;
     uint64_t jaddr = 0;
@@ -147,8 +147,12 @@ int main(int argc, char** argv) {
                   printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, i+1);
 #endif
                   bbs[j++].addr = i+1;
-                  if (jaddr) bbs[j++].addr = jaddr;
-
+                  if (jaddr && jaddr < 0x4000000000) bbs[j++].addr = jaddr;
+/*
+                  if (jaddr > 0x1000000) { 
+                      printf("%p %p\n", jaddr, xed_decoded_inst_get_branch_displacement(xedd)); exit(-1);
+                  }
+*/
                   jumps[m].addr = start;
                   jumps[m].target = jaddr;
                   jumps[m].isjump = 1;
@@ -173,6 +177,13 @@ int main(int argc, char** argv) {
 //    free(buf);
     
     int qcomp(const void *a, const void *b) { return (((bb_t *)a)->addr)-(((bb_t *)b)->addr); }
+/*
+    int qcomp(const void *a, const void *b) { 
+        if ((((bb_t *)a)->addr) > (((bb_t *)b)->addr)) return 1;
+        if ((((bb_t *)a)->addr) < (((bb_t *)b)->addr)) return -1;
+        if ((((bb_t *)a)->addr) == (((bb_t *)b)->addr)) return 0;
+    }
+*/
     qsort(bbs, j, sizeof(bb_t), qcomp);
     int k = 0, ctr = 0;
     for (k=0; k<j; k++) {
@@ -181,7 +192,7 @@ int main(int argc, char** argv) {
     int num_bbs = ctr;
     int num_jumps = m;
 
-    qsort(jumps, m, sizeof(bb_t), qcomp);    
+    qsort(jumps, m, sizeof(bb_t), qcomp);
 #ifdef DEBUG
     printf("\nGathered %d jumps\n", num_jumps);
     for(k=0; k<num_jumps; k++) printf("\t0x%x->0x%x\n", jumps[k].addr, jumps[k].target);
@@ -222,7 +233,7 @@ int main(int argc, char** argv) {
     fclose(f);
 
 #ifdef DEBUG
-    printf("\t%16s %4s %4s %3s   %16s %3s %3s\n",
+    printf("\t%18s %4s %4s %3s   %18s %3s %3s\n",
         "Address",
         "len",
         "ilen",
@@ -231,7 +242,7 @@ int main(int argc, char** argv) {
         "CON",
         "DIR");        
     for (k=0; k<num_bbs+1; k++) {
-      printf("\t%16p %4d %4d %3s ->%16x %3s %3s\n", 
+      printf("\t%18p %4d %4d %3s ->%18x %3s %3s\n", 
           bbs[k].addr, 
           bbs[k].len,
           bbs[k].ilen,
