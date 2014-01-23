@@ -165,33 +165,29 @@ inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsign
 
     xed_tables_init();
 
-    uint32_t start = 0, stop = 1;
-    uint32_t inst_count = 0;
     inst_list_t* ret = (inst_list_t*) malloc(sizeof(inst_list_t));
     inst_list_init(ret, base);
     xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
+    uint32_t offset = 0;
 
-    while(start < length && stop <= length) {
+    while(length-offset > 0) {
         xed_decoded_inst_zero_set_mode(xedd, &xed_state);
         xed_error_enum_t xed_error = xed_decode(xedd, 
-            XED_REINTERPRET_CAST(xed_uint8_t*,data+start),
-            stop-start);
-
+            XED_REINTERPRET_CAST(xed_uint8_t*,data+offset),
+            length-offset);
         switch(xed_error) {
             case XED_ERROR_NONE:
                 inst_list_append(ret, xedd);
-                inst_count++;
-                start = stop;
-                stop = start + 1;
                 if(terminates_bb(xedd)) {
                     return ret;
                 }
+                offset += xed_decoded_inst_get_length(xedd);
                 xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
                 break;
             case XED_ERROR_BUFFER_TOO_SHORT:
             case XED_ERROR_GENERAL_ERROR:
             default:
-                stop += 1;
+                return ret;
         }
     }
 
