@@ -24,8 +24,8 @@ int terminates_bb(xed_decoded_inst_t* inst) {
 }
 
 typedef struct {
-  uint64_t addr;
-  uint64_t target;
+  uint32_t addr;
+  uint32_t target;
   uint16_t ilen;
   uint16_t len;
   char direct;
@@ -127,63 +127,45 @@ int main(int argc, char** argv) {
     xed_tables_init();
 
     bbs[j++].addr = start;    
-    while(stop<=text_base+text_len) {
-#ifdef DEBUG
-      printf("%d ", i-start);
-#endif
-      xed_decoded_inst_zero_set_mode(xedd, &dstate);	// WHY?
+    while(start<text_base+text_len) {
+      xed_decoded_inst_zero_set_mode(xedd, &dstate);
       xed_error = xed_decode(xedd, 
           XED_REINTERPRET_CAST(xed_uint8_t*,buf+start),
-          stop-start);
+          15);
 
       switch(xed_error) {
           case XED_ERROR_NONE:
-              ilens[start] = stop-start;
+              ilens[start] = xed_decoded_inst_get_length(xedd);
               if(terminates_bb(xedd)) {
                   jaddr = xed_decoded_inst_get_branch_displacement(xedd) ?
-                      xed_decoded_inst_get_branch_displacement(xedd) + i + 1 :
+                      xed_decoded_inst_get_branch_displacement(xedd) + start + ilens[start] :
                       0;
 #ifdef DEBUG
-                  printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, i+1);
+                  printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, start+ilens[start]);
 #endif
-                  bbs[j++].addr = i+1;
+                  bbs[j++].addr = start+ilens[start];
                   if (jaddr && jaddr < 0x4000000000) bbs[j++].addr = jaddr;
-/*
-                  if (jaddr > 0x1000000) { 
-                      printf("%p %p\n", jaddr, xed_decoded_inst_get_branch_displacement(xedd)); exit(-1);
-                  }
-*/
                   jumps[m].addr = start;
                   jumps[m].target = jaddr;
                   jumps[m].isjump = 1;
                   jumps[m].conditional = (xed_decoded_inst_get_category(xedd) == XED_CATEGORY_COND_BR);
-//                  jumps[m].direct = jumps[m].conditional && (jaddr > 0);
                   jumps[m].direct = (jaddr > 0) || (xed_decoded_inst_get_category(xedd) == XED_CATEGORY_RET);
                   m++;
               }
-              start = stop;
-              stop = start + 1;
+              start += ilens[start];
               break;
 
           case XED_ERROR_BUFFER_TOO_SHORT:
           case XED_ERROR_GENERAL_ERROR:
           default:
-              stop += 1;
-      }
-        
-      i++;
+#ifdef DEBUG
+              printf("Decode error at %x\n", start);
+#endif
+              start += 1;
+      }        
     }
 
-//    free(buf);
-    
     int qcomp(const void *a, const void *b) { return (((bb_t *)a)->addr)-(((bb_t *)b)->addr); }
-/*
-    int qcomp(const void *a, const void *b) { 
-        if ((((bb_t *)a)->addr) > (((bb_t *)b)->addr)) return 1;
-        if ((((bb_t *)a)->addr) < (((bb_t *)b)->addr)) return -1;
-        if ((((bb_t *)a)->addr) == (((bb_t *)b)->addr)) return 0;
-    }
-*/
     qsort(bbs, j, sizeof(bb_t), qcomp);
     int k = 0, ctr = 0;
     for (k=0; k<j; k++) {
@@ -215,7 +197,7 @@ int main(int argc, char** argv) {
           ctr++;
       }
     }
-    bbs[k-1].len = stop - (text_base+text_len);
+    bbs[k-1].len = start - (text_base+text_len);
 
     printf("\nGathered %d addresses and %d jumps\n", num_bbs, num_jumps);
 
@@ -254,4 +236,3 @@ int main(int argc, char** argv) {
 #endif
     return 0;
 }
-
