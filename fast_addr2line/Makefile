@@ -147,6 +147,12 @@ ifeq ($(DBGHELP),1)
   EXTRA_LDLIBS_TARGET += dbghelp.lib version.lib
 endif
 
+demo:
+	make
+	export LD_LIBRARY_PATH=../lib:${LD_LIBRARY_PATH}
+	python -c 'import addr2line as a2l; a2l.initialize_line_numbers("../tests/files/test_elf"); print a2l.find_line_number(0x40080c)'
+
+
 xed${EXEEXT}: ${XED_OBJ} ${LIBXED}
 	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^ ${EXTRA_LDLIBS_TARGET}
 
@@ -167,6 +173,8 @@ clean:
 	-${RM} *.o *.obj  *.d *.exe > /dev/null 2>&1
 	-${RM} ${XED_TEST_APPS} > /dev/null 2>&1
 	-${RM} -f addr2line.pyc addr2line_wrap.cxx _addr2line.so addr2line.py 2>&1
+
+.PHONY: clean demo
 
 #################################################################
 -include *.d
