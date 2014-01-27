@@ -785,7 +785,7 @@ int main(int argc, char** argv) {
     xed_uint32_t line;
 
     while( scanf( "%lx", &addr) != EOF ) {
-        if( correct_find_line_number(addr, filename, line) )
+        if( find_line_number(addr, filename, line) )
             cout << filename << ":" << line << endl;
         else
             cout << "??:?" << endl;

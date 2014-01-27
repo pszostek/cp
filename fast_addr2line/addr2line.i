@@ -24,13 +24,10 @@
 
 %{
     #include "fast_addr2line.h"
-    extern int correct_find_line_number(uint64_t addr, std::string& file,  xed_uint32_t& line);
-    extern void initialize_line_numbers(char* input_file_name);
 %}
 %include "fast_addr2line.h"
 
-
-%template(IntPair) std::pair<int, int>;
-%template(PairVector) std::vector<std::pair<int, int> >;
-%template(IntVector) std::vector<int>;
+// %template(IntPair) std::pair<int, int>;
+// %template(PairVector) std::vector<std::pair<int, int> >;
+// %template(IntVector) std::vector<int>;
 

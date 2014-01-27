@@ -102,7 +102,7 @@ static map<xed_uint32_t,xed_uint32_t> file_name_table;
 
 
 
-int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
+int incorrect_find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
     map<xed_uint64_t,line_number_entry_t*>::iterator iter =
         line_number_table.find(addr);
     if (iter == line_number_table.end())
@@ -117,7 +117,7 @@ int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
     return 1;
 }
 
-int correct_find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
+int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
     map<xed_uint64_t,line_number_entry_t*>::iterator iter = correct_line_number_table.upper_bound(addr);
 
     if (iter == correct_line_number_table.end() || iter == correct_line_number_table.begin() )
