@@ -24,8 +24,8 @@ int terminates_bb(xed_decoded_inst_t* inst) {
 }
 
 typedef struct {
-  uint64_t addr;
-  uint64_t target;
+  uint32_t addr;
+  uint32_t target;
   uint16_t ilen;
   uint16_t len;
   char direct;
@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
     int fd;
     int i = 0, fsize = 0;
     uint64_t elf_plt_base = 0, elf_plt_size = 0, elf_text_base = 0, elf_text_size = 0;
+    uint64_t elf_init_base = 0, elf_init_size = 0, elf_fini_base = 0, elf_fini_size = 0;
     
     fd = open(argv[1], O_RDONLY);
     fsize = lseek(fd, 0, SEEK_END);
@@ -61,7 +62,7 @@ int main(int argc, char** argv) {
     strtab = (char *)elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
     for (i=0; i<elf_hdr->e_shnum; i++) {
 //#ifdef DEBUG
-        printf("\t%s %x %d\n",
+        printf("\t%-25s %-16p %-d\n",
             &strtab[elf_shdr[i].sh_name],
             elf_shdr[i].sh_offset,
             elf_shdr[i].sh_size);
@@ -70,6 +71,14 @@ int main(int argc, char** argv) {
             elf_text_base = elf_shdr[i].sh_offset;
             elf_text_size = elf_shdr[i].sh_size;
         }
+        if(!strcmp(&strtab[elf_shdr[i].sh_name], ".init")) {
+            elf_init_base = elf_shdr[i].sh_offset;
+            elf_init_size = elf_shdr[i].sh_size;        
+        }        
+        if(!strcmp(&strtab[elf_shdr[i].sh_name], ".fini")) {
+            elf_fini_base = elf_shdr[i].sh_offset;
+            elf_fini_size = elf_shdr[i].sh_size;        
+        }        
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".plt")) {
             elf_plt_base = elf_shdr[i].sh_offset;
             elf_plt_size = elf_shdr[i].sh_size;        
@@ -77,9 +86,8 @@ int main(int argc, char** argv) {
     }
     close(fd);
     
-    // TODO: smart allocation dependent on file size
-    bb_t *bbs = calloc(sizeof(bb_t), fsize/5);
-    bb_t *jumps = calloc(sizeof(bb_t), fsize/5);
+    bb_t *bbs = calloc(sizeof(bb_t), fsize/4);
+    bb_t *jumps = calloc(sizeof(bb_t), fsize/4);
     uint16_t *ilens = calloc(sizeof(uint16_t), fsize);
     
     if(fp != NULL) {
@@ -100,7 +108,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    // TODO: need to disasm both text and plt
+    // TODO: need to disasm all AX sections, so text, plt, .init, .fini and anything else
 //    uint64_t text_base = 0x2c00, start = text_base, stop = start + 1, text_len=0x1039c;
     uint64_t text_base = elf_text_base, start = text_base, stop = start + 1, text_len=elf_text_size;
     uint64_t jaddr = 0;
@@ -119,50 +127,44 @@ int main(int argc, char** argv) {
     xed_tables_init();
 
     bbs[j++].addr = start;    
-    while(stop<=text_base+text_len) {
-#ifdef DEBUG
-      printf("%d ", i-start);
-#endif
-      xed_decoded_inst_zero_set_mode(xedd, &dstate);	// WHY?
+    while(start<text_base+text_len) {
+      xed_decoded_inst_zero_set_mode(xedd, &dstate);
       xed_error = xed_decode(xedd, 
           XED_REINTERPRET_CAST(xed_uint8_t*,buf+start),
-          stop-start);
+          15);
 
       switch(xed_error) {
           case XED_ERROR_NONE:
-              ilens[start] = stop-start;
+              ilens[start] = xed_decoded_inst_get_length(xedd);
               if(terminates_bb(xedd)) {
                   jaddr = xed_decoded_inst_get_branch_displacement(xedd) ?
-                      xed_decoded_inst_get_branch_displacement(xedd) + i + 1 :
+                      xed_decoded_inst_get_branch_displacement(xedd) + start + ilens[start] :
                       0;
 #ifdef DEBUG
-                  printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, i+1);
+                  printf("Bing! 0x%x -> 0x%x; next bb: 0x%x\n", start, jaddr, start+ilens[start]);
 #endif
-                  bbs[j++].addr = i+1;
-                  if (jaddr) bbs[j++].addr = jaddr;
-
+                  bbs[j++].addr = start+ilens[start];
+                  if (jaddr && jaddr < 0x4000000000) bbs[j++].addr = jaddr;
                   jumps[m].addr = start;
                   jumps[m].target = jaddr;
                   jumps[m].isjump = 1;
                   jumps[m].conditional = (xed_decoded_inst_get_category(xedd) == XED_CATEGORY_COND_BR);
-                  jumps[m].direct = jumps[m].conditional && (jaddr > 0);
+                  jumps[m].direct = (jaddr > 0) || (xed_decoded_inst_get_category(xedd) == XED_CATEGORY_RET);
                   m++;
               }
-              start = stop;
-              stop = start + 1;
+              start += ilens[start];
               break;
 
           case XED_ERROR_BUFFER_TOO_SHORT:
           case XED_ERROR_GENERAL_ERROR:
           default:
-              stop += 1;
-      }
-        
-      i++;
+#ifdef DEBUG
+              printf("Decode error at %x\n", start);
+#endif
+              start += 1;
+      }        
     }
 
-    free(buf);
-    
     int qcomp(const void *a, const void *b) { return (((bb_t *)a)->addr)-(((bb_t *)b)->addr); }
     qsort(bbs, j, sizeof(bb_t), qcomp);
     int k = 0, ctr = 0;
@@ -172,13 +174,12 @@ int main(int argc, char** argv) {
     int num_bbs = ctr;
     int num_jumps = m;
 
-    qsort(jumps, m, sizeof(bb_t), qcomp);    
+    qsort(jumps, m, sizeof(bb_t), qcomp);
 #ifdef DEBUG
     printf("\nGathered %d jumps\n", num_jumps);
     for(k=0; k<num_jumps; k++) printf("\t0x%x->0x%x\n", jumps[k].addr, jumps[k].target);
 #endif
 
-    // TODO: last BB has incorrect parameters
     int n = 0;
     k = 0, ctr = 0;
     while(jumps[ctr].addr < bbs[0].addr) ctr++;
@@ -196,6 +197,7 @@ int main(int argc, char** argv) {
           ctr++;
       }
     }
+    bbs[k-1].len = start - (text_base+text_len);
 
     printf("\nGathered %d addresses and %d jumps\n", num_bbs, num_jumps);
 
@@ -213,7 +215,7 @@ int main(int argc, char** argv) {
     fclose(f);
 
 #ifdef DEBUG
-    printf("\t%16s %4s %4s %3s   %16s %3s %3s\n",
+    printf("\t%18s %4s %4s %3s   %18s %3s %3s\n",
         "Address",
         "len",
         "ilen",
@@ -222,7 +224,7 @@ int main(int argc, char** argv) {
         "CON",
         "DIR");        
     for (k=0; k<num_bbs+1; k++) {
-      printf("\t%16p %4d %4d %3s ->%16x %3s %3s\n", 
+      printf("\t%18p %4d %4d %3s ->%18x %3s %3s\n", 
           bbs[k].addr, 
           bbs[k].len,
           bbs[k].ilen,
@@ -234,61 +236,3 @@ int main(int argc, char** argv) {
 #endif
     return 0;
 }
-
-
-/*
-SWIGINTERN int inst_list_t_is_finished_by_call(inst_list_t *self){
-        return (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_CALL);
-    }
-SWIGINTERN int inst_list_t_is_finished_by_branch(inst_list_t *self){
-        return (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_COND_BR)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_UNCOND_BR)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_CALL)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_SYSRET)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_SYSCALL)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_SYSTEM)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_RET);
-    }
-SWIGINTERN int inst_list_t_is_finished_by_cond_branch(inst_list_t *self){
-        return (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_COND_BR);
-    }
-SWIGINTERN int inst_list_t_is_finished_by_uncond_branch(inst_list_t *self){
-        return (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_UNCOND_BR)
-            || (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_CALL);
-    }
-SWIGINTERN int inst_list_t_is_finished_by_ret(inst_list_t *self){
-        return (xed_decoded_inst_get_category(self->inst_array[self->size-1]) == XED_CATEGORY_RET);
-    }
-SWIGINTERN int inst_list_t_is_finished_by_direct_branch(inst_list_t *self){
-        if(!inst_list_t_is_finished_by_branch(self)) {
-            return 0;
-        }
-        unsigned int i, noperands;
-        xed_decoded_inst_t* xedd = self->inst_array[self->size-1];
-        const xed_inst_t* xi = xed_decoded_inst_inst(xedd);
-        for( i=0; i < noperands ; i++) {
-            const xed_operand_t* op = xed_inst_operand(xi,i);
-            xed_operand_enum_t op_name = xed_operand_name(op);
-            if(op_name >= XED_OPERAND_REG0 && op_name <= XED_OPERAND_BASE1) {
-                return 0;
-            }
-        }
-        return 1;
-    }
-SWIGINTERN int inst_list_t_is_finished_by_indirect_branch(inst_list_t *self){
-        if(!inst_list_t_is_finished_by_branch(self)) {
-            return 0;
-        }
-        unsigned int i, noperands;
-        xed_decoded_inst_t* xedd = self->inst_array[self->size-1];
-        const xed_inst_t* xi = xed_decoded_inst_inst(xedd);
-        for( i=0; i < noperands ; i++) {
-            const xed_operand_t* op = xed_inst_operand(xi,i);
-            xed_operand_enum_t op_name = xed_operand_name(op);
-            if(op_name >= XED_OPERAND_REG0 && op_name <= XED_OPERAND_BASE1) {
-                return 1;
-            }
-        }
-        return 0;
-    }
-*/
