@@ -3,3 +3,5 @@ gooda
 pin-2.12-58423-gcc.4.4.7-linux
 pintools
 chromiumos-wide-profiling
+*.o
+*.pyc
