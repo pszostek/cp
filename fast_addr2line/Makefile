@@ -49,15 +49,15 @@ ifeq ($(COMPILER),gnu)
   CCSRCEXT=c
   ifeq ($(SHARED),1)
      LIBEXT=so 
-  else
+ else
      LIBEXT=a
   endif
   LINKOUT=-o 
   OUTOPT=-o 
   COPT=-c
   IOPT=-I
-  CXXFLAGS = -MMD
-  CCFLAGS = -MMD
+  CXXFLAGS = -MMD -fPIC
+  CCFLAGS = -MMD -fPIC
 
   #
   # Uncomment these next 2 if you want 32b object and executable 
@@ -105,15 +105,11 @@ EXTRA_LDLIBS_TARGET = -ldwarf -lelf -lpthread
 ###################################################################
 .PHONY: demos cmdline  clean-examples test-xed
 
-XED = xed fast_addr2line
-#XED_DEMOS = xed-min xed-tester xed-ex1 xed-ex2 xed-ex3 xed-ex4 \
-#	xed-ex5-enc xed-ex6 xed-ex7
-
-#XED_DEMOS_SUFFIXED= $(XED_DEMOS:%=%$(EXEEXT))
+XED = fast_addr2line
 XED_SUFFIXED= $(XED:%=%$(EXEEXT))
 
 XED_TEST_APPS = ${XED_SUFFIXED} # ${XED_DEMOS_SUFFIXED} 
-all: ${XED_TEST_APPS}
+all: ${XED_TEST_APPS} addr2line_python
 demos: ${XED_DEMOS_SUFFIXED}
 cmdline: ${XED_SUFFIXED}
 
@@ -130,33 +126,6 @@ XED_CC_COMMON_OBJ  = xed-examples-util.${OBJEXT}
 XED_CC_COMMON_OBJ += xed-dot-prep.${OBJEXT}
 XED_CC_COMMON_OBJ += xed-dot.${OBJEXT}
 
-#xed-min${EXEEXT}: xed-min.${OBJEXT} ${LIBXED}
-#	${CC_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-
-#xed-tester${EXEEXT}: xed-tester.${OBJEXT} ${LIBXED}
-#	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-
-#xed-ex1${EXEEXT}: xed-ex1.${OBJEXT} ${XED_CC_COMMON_OBJ} ${XED_CXX_COMMON_OBJ} ${LIBXED}
-#	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-
-#xed-ex2${EXEEXT}: xed-ex2.${OBJEXT} ${LIBXED} 
-#	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^ ${EXTRA_LDLIBS_TARGET}
-
-#xed-ex3${EXEEXT}: xed-ex3.${OBJEXT} ${XED_CC_COMMON_OBJ} ${XED_CXX_COMMON_OBJ} ${LIBXED} 
-#	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^ ${EXTRA_LDLIBS_TARGET}
-
-#xed-ex4${EXEEXT}: xed-ex4.${OBJEXT} ${XED_CC_COMMON_OBJ} ${LIBXED} 
-#	${CC_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-#xed-ex5-enc${EXEEXT}: xed-ex5-enc.${OBJEXT} ${XED_CC_COMMON_OBJ} ${LIBXED} 
-#	${CC_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-#xed-ex6${EXEEXT}: xed-ex6.${OBJEXT} ${XED_CC_COMMON_OBJ} ${LIBXED} 
-#	${CC_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-#xed-ex7${EXEEXT}: xed-ex7.${OBJEXT} ${XED_CC_COMMON_OBJ} ${LIBXED} 
-#	${CC_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-
-fast_addr2line${EXEEXT}: fast_addr2line.${OBJEXT} ${XED_CC_COMMON_OBJ} ${LIBXED} 
-	${CC_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^  ${EXTRA_LDLIBS_TARGET}
-
 #################################################################
 
 XED_OBJ2 += xed-disas-macho.${OBJEXT}
@@ -167,7 +136,7 @@ XED_OBJ2 += xed-symbol-table.${OBJEXT}
 XED_OBJ2 += ${XED_CC_COMMON_OBJ} 
 XED_OBJ2 += ${XED_CXX_COMMON_OBJ}
 
-XED_OBJ  = xed.${OBJEXT} 
+#XED_OBJ  = xed.${OBJEXT} 
 XED_OBJ += ${XED_OBJ2}
 
 # define DBGHELP=1 on the command line to enable using dbghelp.dll on windows
@@ -183,11 +152,21 @@ xed${EXEEXT}: ${XED_OBJ} ${LIBXED}
 
 fast_addr2line${EXEEXT}: ${XED_OBJ2} fast_addr2line.${OBJEXT} ${LIBXED}
 	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^ ${EXTRA_LDLIBS_TARGET}
+
+addr2line_python: _addr2line.so addr2line.py
+
+_addr2line.so: addr2line_wrap.cxx fast_addr2line.o ${XED_OBJ}
+	g++ -fPIC $^ -I/usr/include/python2.7 -L/home/paszoste/cp/pin-example/lib -L../lib -ldwarf -lelf -lxed -I../include -shared -o $@
+
+addr2line.py addr2line_wrap.cxx: addr2line.i fast_addr2line.h
+	swig -c++ -Dinline= -Wall -python $< 
+
 #################################################################
 
 clean:
 	-${RM} *.o *.obj  *.d *.exe > /dev/null 2>&1
 	-${RM} ${XED_TEST_APPS} > /dev/null 2>&1
+	-${RM} -f addr2line.pyc addr2line_wrap.cxx _addr2line.so addr2line.py 2>&1
 
 #################################################################
 -include *.d

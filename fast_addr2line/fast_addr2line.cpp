@@ -55,6 +55,8 @@ extern "C" {
 #include <cstring>
 #include <cstdlib>
 
+#include "fast_addr2line.h"
+
 using namespace std;
 
 
@@ -773,10 +775,6 @@ static FILE* fopen_portable(char const* const file_name,
  
 
 ////////////////////////////////////////////////////////////////////////////
-
-void initialize_line_numbers(char* input_file_name);
-int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line);
-int correct_find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line);
 
 
 int main(int argc, char** argv) {
