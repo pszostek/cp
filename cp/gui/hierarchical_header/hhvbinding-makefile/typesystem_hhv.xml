@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<typesystem package="hhv">
+	<load-typesystem name="typesystem_core.xml" generate="no" />
+	<load-typesystem name="typesystem_gui_common.xml" generate="no" />
+<load-typesystem name="typesystem_core_common.xml" generate="no" />
+<load-typesystem name="typesystem_core_mac.xml" generate="no" />
+<load-typesystem name="typesystem_core_maemo.xml" generate="no" />
+<load-typesystem name="typesystem_core_win.xml" generate="no" />
+<load-typesystem name="typesystem_core_x11.xml" generate="no" />
+<load-typesystem name="typesystem_declarative.xml" generate="no" />
+<load-typesystem name="typesystem_gui_mac.xml" generate="no" />
+<load-typesystem name="typesystem_gui_maemo.xml" generate="no" />
+<load-typesystem name="typesystem_gui_simulator.xml" generate="no" />
+<load-typesystem name="typesystem_gui_win.xml" generate="no" />
+<load-typesystem name="typesystem_gui_x11.xml" generate="no" />
+<load-typesystem name="typesystem_gui.xml" generate="no" />
+<load-typesystem name="typesystem_help.xml" generate="no" />
+<load-typesystem name="typesystem_network.xml" generate="no" />
+<load-typesystem name="typesystem_opengl.xml" generate="no" />
+<load-typesystem name="typesystem_templates.xml" generate="no" />
+<load-typesystem name="typesystem_uitools.xml" generate="no" />
+<load-typesystem name="typesystem_xmlpatterns.xml" generate="no" />
+<load-typesystem name="typesystem_xml.xml" generate="no" />
+	<object-type name="HierarchicalHeaderView"/>
+</typesystem>
