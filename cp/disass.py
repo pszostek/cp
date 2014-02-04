@@ -2,6 +2,7 @@
 
 import xed
 import elf
+import addr2line
 
 def bytes_to_string(bytes):
     return ' '.join(map(lambda x: '%02x' % ord(x), bytes))
@@ -17,6 +18,34 @@ def disassemble_x64(data, base=0):
 def disassemble_x64_until_bb_end(data, base=0):
     assert isinstance(data, basestring)
     return xed._disassemble_x64_until_bb_end(data, base)
+
+def get_source_location(bb_dict):
+    """ Function that looks for provenance of instruction under given addresses
+
+    bb_dict: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
+    returns a list of tuples (source_file:line) or (None, None) if not known.
+    """
+    from pandas import MultiIndex, DataFrame
+    index_tuples = []
+    data_tuples = []
+    for dso_path in bb_dict.keys():
+        addr2line.initialize_line_numbers(dso_path)
+        for offset in bb_dict[dso_path]:
+            loc = addr2line.find_line_number(offset+0x400000)
+            ret = loc[0]
+            source_file_name = loc[1]
+            source_file_line = loc[2]
+            index_tuples.append((dso_path, offset))
+            if ret:
+              data_tuples.append((source_file_name, source_file_line))
+            else:
+              data_tuples.append((None, None))
+    index = MultiIndex.from_tuples(index_tuples, names=['dso_path', 'bb_offset'])
+    columns = ['source_file', 'line']
+    return DataFrame(data_tuples,
+                     index=index,
+                     columns=columns)
+
 
 def get_inst_lists_for_basic_blocks(bb_dict):
     """ Function that disassembles basic blocks at given offsets
