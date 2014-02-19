@@ -35,8 +35,10 @@ class ExampleModel(QAbstractTableModel):
 
     def data(self, index, role):
         if role == Qt.UserRole:
+            print "ur"
             return self._horizontalHeaderModel
         if role == Qt.UserRole+1:
+            print "ur+1"
             return self._verticalHeaderModel
         if role == Qt.DisplayRole and index.isValid():
             return "index(%d, %d)" % (index.row(), index.column())
@@ -45,7 +47,7 @@ class ExampleModel(QAbstractTableModel):
 app = QtGui.QApplication(sys.argv)
 em = ExampleModel()
 tv = QTableView()
-hv = hhv.HierarchicalHeaderView(QtCore.Qt.Horizontal)
+hv = hhv.HierarchicalHeaderView(QtCore.Qt.Horizontal, tv)
 tv.setHorizontalHeader(hv)
 hv = hhv.HierarchicalHeaderView(Qt.Vertical, tv)
 tv.setVerticalHeader(hv)

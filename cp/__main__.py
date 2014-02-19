@@ -11,8 +11,8 @@ import time
 import signal
 import os
 from functools import partial
-from qtpandas import DataFrameModel
-from gui.pyside_dynamic import loadUi
+from gui.qtpandas import DataFrameModel
+from gui.uiloader import loadUi
 
 C_COLUMN, C_ROW = 0,1
 
