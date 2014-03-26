@@ -11,10 +11,20 @@ import time
 import signal
 import os
 from functools import partial
-from gui.qtpandas import DataFrameModel
+from gui.qtpandas import DataFrameModel, DataFrameView
 from gui.uiloader import loadUi
+from gui import qtpandas
 
 C_COLUMN, C_ROW = 0,1
+
+def pivot(data_frames_dict, column_tuples, row_tuples):
+    """ Returns a pivoted data frame 
+
+    data_frames_dict: a dictionary with csv paths as keys and Pandas.DataFrame as values
+    column_tuples: ordered list of tuples (csv_path, name_of_chosen_column)
+    row_tuples: ordered list of tuples (csv_path, name_of_chosen_row)
+    """
+    pass
 
 class PivotComboBox(QComboBox):
     def __init__(self, parent=None):
@@ -44,9 +54,11 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.customWidgets = [PivotComboBox]
-        loadUi('gui/cp.ui', self)
+        self.customWidgets = [PivotComboBox, DataFrameView]
+        loadUi('gui/cp.ui', baseinstance=self, customWidgets=self.customWidgets)
 
+#        self.tableWidget = qtpandas.DataFrameWidget(self)
+        print type(self.dataFrameView)
         self.redoButton.setIcon(QIcon.fromTheme("edit-redo"))
         self.undoButton.setIcon(QIcon.fromTheme("edit-undo"))
         self.openFileButton.setIcon(QIcon.fromTheme("document-open"))
@@ -80,7 +92,7 @@ class MainWindow(QMainWindow):
         self.dataFilesList.itemDoubleClicked.connect(self.showDataFrameOutlook)
   
         self.dataFileContent.horizontalHeader().setVisible(True)
-        self.dataFileContent.setSortingEnabled(True)
+        self.dataFileContent.setSortingEnabled(False)
         self.dataFileContent.setShowGrid(True)
         self.dataFileContent.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.fileListChanged.connect(self.addNewItemsToComboBoxes)
@@ -96,7 +108,7 @@ class MainWindow(QMainWindow):
         if selectedFilePath not in self.dataFrames.keys():
             try:
                 self._addDataFrameByPath(selectedFilePath)
-                self.fileListChanged.emit(self._getColumnNames())
+                self.fileListChanged.emit(self._getAvailableColumns())
             except:
                 QMessageBox.critical(self, "Error", "Chosen file is not in the CSV format")
                 raise
@@ -119,25 +131,47 @@ class MainWindow(QMainWindow):
         chosenDataFrame = self.dataFrames[chosenFilePath]
         self._fillTableFromDataFrame(self.dataFileContent, chosenDataFrame)
 
+    def get_combo_choices(self):
+        column_combos = [self.columnComboBox1,
+                 self.columnComboBox2,
+                 self.columnComboBox3]
+
+        row_combos = [self.rowComboBox1,
+                      self.rowComboBox2,
+                      self.rowComboBox3]
+
+
+        chosen_rows = []
+        chosen_columns = []
+
+        for chosen_items, combos in [(chosen_rows, row_combos), (chosen_columns, column_combos)]:
+            missing_choice = False
+            for combo in combos:
+                column_tuple = tuple(combo.itemData(combo.currentIndex()))
+                chosen_items.append(column_tuple)
+                if combo.level == 0:
+                    if not combo.currentIndex():
+                        QMessageBox.critical(self, "Error", "Invalid choice in combo boxes!\nSelect at least one column pivot.")
+                        #return
+                    else:
+                        pass
+                else:
+                    if combo.currentIndex():
+                        if missing_choice: #there is already one missing 
+                            QMessageBox.critical(self, "Error", "Invalid choice in the combo boxes!")
+                            #return
+                    else:
+                        missing_choice = True
+        return chosen_rows, chosen_columns
+
     def pivotData(self):
-        c1i = self.columnComboBox1.currentIndex()
-        c2i = self.columnComboBox2.currentIndex()
-        c3i = self.columnComboBox3.currentIndex()
-        r1i = self.rowComboBox1.currentIndex()
-        r2i = self.rowComboBox2.currentIndex()
-        r3i = self.rowComboBox3.currentIndex()
-        if (not (c1i or c2i or c3i)):
-            QMessageBox.critical(self, "Error", "Invalid choice in combo boxes!\nSelect at least one column pivot.")
-        if (not (r1i or r2i or r3i)):
-            QMessageBox.critical(self, "Error", "Invalid choice in combo boxes!\nSelect at least one row pivot.")
-        if ((c2i and not c1i) or (c3i and not (c1i and c2i))):
-            QMessageBox.critical(self, "Error", "Invalid choice in the combo boxes!")
-        if ((r2i and not r1i) or (r3i and not (r1i and r2i))):
-            QMessageBox.critical(self, "Error", "Invalid choice in the combo boxes!")
+        chosen_rows, chosen_columns = self.get_combo_choices()
+        pivotedDataFrame = pivot(self.dataFrames, chosen_rows)
 
 
     def propagateComboBoxChange(self, source, index):
         level = source.level
+
         if source.role == C_COLUMN:
             if level == 1:
                 if index == 0:
@@ -181,27 +215,34 @@ class MainWindow(QMainWindow):
         self.columnComboBox2.clear()
         self.columnComboBox3.clear()
 
-        self.rowComboBox1.insertItems(1, listOfColumns)
-        self.rowComboBox2.insertItems(1, listOfColumns)
-        self.rowComboBox3.insertItems(1, listOfColumns)
-        self.columnComboBox1.insertItems(1, listOfColumns)
-        self.columnComboBox2.insertItems(1, listOfColumns)
-        self.columnComboBox3.insertItems(1, listOfColumns)
+        for tableName, columnName in listOfColumns:
+            string = "%s::%s" % (tableName, columnName)
+            userData = (tableName, columnName)
+            self.rowComboBox1.insertItem(1, string, userData)
+            self.rowComboBox2.insertItem(1, string, userData)
+            self.rowComboBox3.insertItem(1, string, userData)
+            self.columnComboBox1.insertItem(1, string, userData)
+            self.columnComboBox2.insertItem(1, string, userData)
+            self.columnComboBox3.insertItem(1, string, userData)
 
     ### PRIVATE FUNCTIONS ###
 
-    def _getColumnNames(self):
-        columnNames = list()
+    def _getAvailableColumns(self):
+        columns = list()
         for path, dataFrame in self.dataFrames.items():
-            tableName = '.'.join(os.path.basename(path).split('.')[:-1])
+            tableName = os.path.basename(path)
             for columnName in dataFrame.columns:
-                columnNames.append("%s::%s" % (tableName, columnName))
-        return columnNames
+                columns.append((tableName, columnName))
+        return columns
 
     def _addDataFrameByPath(self, path):
-        new_df = DataFrame.from_csv(path, index_col=0, sep=';', parse_dates=False)
-        if new_df.shape[1] == 1:
-            new_df =DataFrame.from_csv(path, index_col=0, sep=',', parse_dates=False)
+        try:
+            new_df = DataFrame.from_csv(path, index_col=[0], sep=';', parse_dates=False)
+            if new_df.shape[1] == 1 or new_df.shape[1] == 0:
+                new_df =DataFrame.from_csv(path, index_col=[0], sep=',', parse_dates=False)
+        except IndexError: # index columns not recognized
+            new_df =DataFrame.from_csv(path, index_col=[0], sep=',', parse_dates=False)
+        print new_df.shape, new_df.columns
         self.dataFrames[path] = new_df 
         self.dataFilesList.addItem(path)
 
@@ -212,11 +253,30 @@ class MainWindow(QMainWindow):
         start_time = time.time()
         tableWidget.setModel(None)
 
-        sourceModel = DataFrameModel(self)
-        sourceModel.setDataFrame(dataFrame)
+        sourceModel = DataFrameModel(dataFrame)
         proxyModel = QSortFilterProxyModel(self)
         proxyModel.setSourceModel(sourceModel)
+
+        for i in xrange(len(dataFrame.columns.tolist())):
+            label = str(dataFrame.columns.tolist()[i])
+            item = QStandardItem(label)
+            proxyModel.setHeaderData(i, Qt.Orientation.Horizontal, label)
         tableWidget.setModel(proxyModel)
+       #  from itertools import repeat
+       #  horizontalHeaderView = QHeaderView(Qt.Orientation.Horizontal, tableWidget)
+       #  # horizontalModel = QStringListModel(list(repeat('1', 18)))
+       # # horizontalModel = QStandardItemModel(tableWidget)
+       #  horizontalModel = QStandardItemModel()
+       #  for i in xrange(len(dataFrame.columns.tolist())):
+       #      label = str(dataFrame.columns.tolist()[i])
+       #      item = QStandardItem(label)
+       #      print dataFrame.columns.tolist()[i]
+       #      print item
+       #      horizontalModel.insertColumn(0, [item])
+       #      horizontalModel.setData(horizontalModel.createIndex(i,0), label)
+       #  horizontalHeaderView.setModel(horizontalModel)
+       #  horizontalHeaderView.setVisible(True)
+       #  tableWidget.setHorizontalHeader(horizontalHeaderView)
 
         end_time = time.time()
         self.statusBar().showMessage("Inserted data in %g" % (end_time - start_time))
@@ -224,6 +284,7 @@ class MainWindow(QMainWindow):
         tableWidget.show()
 
 def main(argv=None):
+    from pandas import DataFrame
     if argv is None:
         argv = sys.argv
 

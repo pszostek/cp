@@ -63,7 +63,7 @@ class private_data:
             childCount = curentIndex.model().columnCount(curentIndex)
             if childCount:
                 for i in range(childCount):
-                    res += self.searchLeafs(curentIndex.child(0, i))
+                   res += self.searchLeafs(curentIndex.child(0, i))
             else:
                 res.append(curentIndex)
         return res
@@ -106,7 +106,8 @@ class private_data:
         decorationsSize = QtCore.QSize(hv.style().sizeFromContents(
             QtGui.QStyle.CT_HeaderSection, styleOptions, QtCore.QSize(), hv))
         emptyTextSize = QtCore.QSize(fm.size(0, ""))
-        print "cellSize", res.expandedTo(size + decorationsSize - emptyTextSize)
+        # print "cellSize", res.expandedTo(size + decorationsSize - emptyTextSize)
+     #   return res.expandedTo(size + decorationsSize - emptyTextSize)
         return res.expandedTo(size + decorationsSize - emptyTextSize)
 
     def currentCellWidth(self, searchedIndex, leafIndex, sectionIndex, hv):
@@ -134,7 +135,7 @@ class private_data:
     def paintHorizontalCell(
             self, painter, hv, cellIndex, leafIndex, logicalLeafIndex,
             styleOptions, sectionRect, top):
-        print "paintHorizontalCell", cellIndex, leafIndex, logicalLeafIndex, self.leafs(cellIndex)
+        #print "paintHorizontalCell", cellIndex, leafIndex, logicalLeafIndex, self.leafs(cellIndex)
         uniopt = QtGui.QStyleOptionHeader(styleOptions)
         if len(self.leafs(cellIndex)) != 0:
             uniopt.sortIndicator = QtGui.QStyleOptionHeader.None
@@ -171,7 +172,7 @@ class private_data:
     def paintHorizontalSection(
             self, painter, sectionRect, logicalLeafIndex, hv, styleOptions,
             leafIndex):
-        print "paintHorizontalSection", logicalLeafIndex, leafIndex
+        #print "paintHorizontalSection", logicalLeafIndex, leafIndex
         oldBO = QtCore.QPointF(painter.brushOrigin())
         top = sectionRect.y()
         indexes = self.parentIndexes(leafIndex)
@@ -194,7 +195,6 @@ class private_data:
     def paintVerticalCell(
             self, painter, hv, cellIndex, leafIndex, logicalLeafIndex,
             styleOptions, sectionRect, left):
-        print 
         uniopt = QtGui.QStyleOptionHeader(styleOptions)
       #  uniopt.sortIndicator = QtGui.QStyleOptionHeader.SortDown
         self.setForegroundBrush(uniopt, cellIndex)
@@ -266,13 +266,16 @@ class HierarchicalHeaderView(QtGui.QHeaderView):
             self,
             QtCore.SIGNAL("sectionResized(int, int, int)"),
             self.on_sectionResized)
-        #self.connect(self, QtCore.SIGNAL("sectionClicked(int logicalIndex)"), self.on_sectionClicked)
         self.sectionClicked.connect(self.on_sectionClicked)
         self.setClickable(True)
         self.setSortIndicatorShown(True)
 
+    # def headerDataChanged(self, orientation, logicalFirst, logicalLast):
+    #     self.repaint()
+
     def on_sectionClicked(self, logicalIndex):
-        print("on_sectionClicked")
+        #print("on_sectionClicked")
+        pass
 
     def styleOptionForCell(self, logicalInd):
         import random
@@ -294,7 +297,7 @@ class HierarchicalHeaderView(QtGui.QHeaderView):
                     opt.sortIndicator = QtGui.QStyleOptionHeader.SortDown
                 elif self.sortIndicatorOrder() == QtCore.Qt.SortOrder.AscendingOrder:
                     opt.sortIndicator = QtGui.QStyleOptionHeader.SortUp
-            # print 'sOFC', logicalInd, self.sortIndicatorSection(), self.sortIndicatorOrder(), self.count()
+            # print cp'sOFC', logicalInd, self.sortIndicatorSection(), self.sortIndicatorOrder(), self.count()
         if self.count() == 1:
             opt.position = QtGui.QStyleOptionHeader.OnlyOneSection
         else:
