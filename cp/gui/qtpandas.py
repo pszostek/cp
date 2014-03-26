@@ -10,24 +10,36 @@ from PySide.QtCore import *
 from PySide.QtCore import QAbstractTableModel, Qt, QModelIndex
 QVariant = lambda value=None: value
 import pandas
+from itertools import repeat
 from pandas import DataFrame, Index
+# try:
+#     from hierarchical_header import HierarchicalHeaderView
+# except ImportError:
+#     from HierarchicalHeaderView import HierarchicalHeaderView
+
 from HierarchicalHeaderView import HierarchicalHeaderView
+#from hierarchical_header import HierarchicalHeaderView
 
 
 class DataFrameModel(QAbstractTableModel):
 
     ''' data model for a DataFrame class '''
 
-    def __init__(self, parent=None):
+    def __init__(self, dataFrame=None, parent=None):
         super(DataFrameModel, self).__init__(parent)
-        self.df = DataFrame()
+        self.df = dataFrame
+        self.sortSection = 0
+        self.sortOrder = None
         self._horizontalHeaderModel = QStandardItemModel()
         self._verticalHeaderModel = QStandardItemModel()
-        self.fillHeaderModel(self._horizontalHeaderModel, df.columns)
-        self.fillHeaderModel(self._verticalHeaderModel, df.index)
 
     def setDataFrame(self, dataFrame):
+        assert dataFrame is not None
         self.df = dataFrame
+        print(dataFrame.columns)
+        print(dataFrame.index)
+        self.fillHeaderModel(self._horizontalHeaderModel, dataFrame.columns)
+        self.fillHeaderModel(self._verticalHeaderModel, dataFrame.index)
 
     # def signalUpdate(self):
     #     ''' tell viewers to update their data (this is full update, not
@@ -38,27 +50,24 @@ class DataFrameModel(QAbstractTableModel):
         from collections import defaultdict
         if isinstance(index, pandas.MultiIndex):
             label_tuples = index.tolist()
-            nodes_tree = {}  # {((1,2), 'a'), ...}]
-            #print(label_tuples)
+            max_len = len(label_tuples[0])
+            last_items = list(repeat((None, None), max_len))
             for tuple_ in label_tuples:
-                print("tuple")
-                headerModel.invisibleRootItem().appendColumn(map(QStandardItem, tuple_))
-                # for level, label in enumerate(tuple_):
-                #     cell = QStandardItem(label)
-                #     headerModel.invisibleRootItem().appendColumn([cell])
-
-                    #             [cell])
-                    # print(level, label)
-                    # # check if a node with this path on this level is
-                    # if (level, tuple_[:level + 1]) not in nodes_tree.keys():
-                    #     cell = QStandardItem(label)
-                    #     nodes_tree[(level, tuple_[:level + 1])] = cell
-                    #     if level == 0:
-                    #         headerModel.invisibleRootItem().appendColumn(
-                    #             [cell])
-                    #     else:
-                    #         root = nodes_tree[(level - 1, tuple_[:level])]
-                    #         root.appendColumn([cell])
+                for level, label in enumerate(tuple_):
+                    last_cell = last_items[level]
+                    if last_cell[0] == label: #label is the same
+                        continue
+                    else:
+                        cell = QStandardItem(str(label))
+                        if level == 0: # take root item
+                            root = headerModel.invisibleRootItem()
+                            root.appendColumn([cell])
+                        else: # take the parent
+                            parent = last_items[level-1][1]
+                            parent.appendColumn([cell])
+                        last_items[level] = (label, cell)
+                        for i in xrange(level+1, max_len): #invalidate the remaining part
+                            last_items[i] = (None, None)
 
         elif isinstance(index, pandas.Int64Index):# or \
                 #isinstance(index, pandas.Float64Index):
@@ -76,15 +85,12 @@ class DataFrameModel(QAbstractTableModel):
             #print(type(index), index)
 
     def data(self, index, role):
-        if role == Qt.UserRole:
+        if role == Qt.DisplayRole and index.isValid():
+            return str(self.df.iloc[index.row(), index.column()])
+        elif role == Qt.UserRole:
             return self._horizontalHeaderModel
         elif role == Qt.UserRole + 1:
             return self._verticalHeaderModel
-        else:
-            if not index.isValid():
-                return QVariant()
-            elif role == Qt.DisplayRole and index.isValid():
-                return str(self.df.iloc[index.row(), index.column()])
 
     def rowCount(self, index=QModelIndex()):
         return self.df.shape[0]
@@ -93,35 +99,71 @@ class DataFrameModel(QAbstractTableModel):
         return self.df.shape[1]
 
     def sort(self, column, order):
-        print("sort", column, order)
+        print("sort")
+        if order == self.sortOrder and column == self.sortSection:
+            print("skip")
+            return
+        column_list = self.df.columns.tolist()
+        column_tuple = column_list[column]
+        if order == Qt.SortOrder.AscendingOrder:
+            self.sortOrder = Qt.SortOrder.AscendingOrder
+            ascending = True
+        else:
+            self.sortOrder = Qt.SortOrder.DescendingOrder
+            ascending = False
+        self.sortSection = column
+        self.df.sort([column_tuple], inplace=True, ascending=ascending)
+        print(self.df.index)
+        topLeft = self.createIndex(0,0)
+        bottomRight = self.createIndex(df.shape[0]-1, df.shape[1]-1)
+        self._verticalHeaderModel = QStandardItemModel()
+        self.fillHeaderModel(self._verticalHeaderModel, df.index)
+        self.headerDataChanged.emit(Qt.Orientation.Vertical, 0, df.shape[0]-1)
+        self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, df.shape[1]-1)
+        self.wid = DataFrameView(self.df)
+        self.wid.resize(250, 150)
+        self.wid.setWindowTitle('NewWindow')
+        self.wid.show()
 
+        self.layoutChanged.emit()
+        self.dataChanged.emit(topLeft, bottomRight)
 
-class DataFrameWidget(QTableView):
+    def headerData(self, section, orientation, role):
+        #print("headerData", orientation, section, role)
+        #return "1"
+        pass
+
+class DataFrameView(QTableView):
 
     ''' a simple widget for using DataFrames in a gui '''
 
     def __init__(self, dataFrame=None, parent=None):
-        super(DataFrameWidget, self).__init__(parent)
+        super(DataFrameView, self).__init__(parent)
 
-        self.dataModel = DataFrameModel()
-        self.dataModel.setDataFrame(dataFrame)
         horizontalHeaderView = HierarchicalHeaderView(
             QtCore.Qt.Horizontal,
             self)
         horizontalHeaderView.setClickable(True)
         self.setHorizontalHeader(horizontalHeaderView)
+
         verticalHeaderView = HierarchicalHeaderView(QtCore.Qt.Vertical, self)
         verticalHeaderView.setClickable(True)
         self.setVerticalHeader(verticalHeaderView)
-        
-        proxyModel = QSortFilterProxyModel(self)
-        #### SegFault 
-        proxyModel.createIndex = proxyModel.index
-        ####
-        proxyModel.setSourceModel(self.dataModel)
-        self.setModel(proxyModel)
 
-        #self.setModel(self.dataModel)
+        if dataFrame is None:
+            self.dataModel = None
+        else:
+            self.setModel(dataFrame=dataFrame)
+
+    def setModel(self, dataFrame):
+        assert isinstance(dataFrame, DataFrame)
+        assert dataFrame is not None
+
+        self.dataModel = DataFrameModel()
+        self.dataModel.setDataFrame(dataFrame)
+        self.dataModel.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
+        super(DataFrameView, self).setModel(self.dataModel)
+
 
 def testDf():
     ''' creates test dataframe '''
@@ -152,8 +194,12 @@ if __name__ == '__main__':
     df = DataFrame.from_csv('../fullcms.csv', index_col=[0, 1, 2], sep=',')
     # print df.columns
     # print df.index
-    df = df[:50]
-    widget = DataFrameWidget(df)
+    import random
+    #rows = random.sample(df.index, 50)
+    #df = df.ix[rows]
+    df = df[:10]
+    widget = DataFrameView(dataFrame=df)
+    widget.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.DescendingOrder)
     widget.setSortingEnabled(True)
     widget.show()
     app.exec_()
