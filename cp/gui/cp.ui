@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>850</width>
-    <height>600</height>
+    <width>1381</width>
+    <height>883</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -209,7 +209,7 @@
                 </property>
                 <property name="maximumSize">
                  <size>
-                  <width>200</width>
+                  <width>0</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -226,6 +226,16 @@
                <widget class="QToolButton" name="applyComboBoxesButton">
                 <property name="text">
                  <string>Apply</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton">
+                <property name="enabled">
+                 <bool>true</bool>
+                </property>
+                <property name="text">
+                 <string>Clear</string>
                 </property>
                </widget>
               </item>
@@ -266,28 +276,7 @@
              </layout>
             </item>
             <item row="0" column="0">
-             <widget class="QComboBox" name="comboBox_3">
-              <item>
-               <property name="text">
-                <string>Default</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>View 1</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>View 2</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>View 3</string>
-               </property>
-              </item>
-             </widget>
+             <widget class="PivotComboBox" name="displayedValueComboBox"/>
             </item>
             <item row="2" column="1">
              <widget class="DataFrameView" name="dataFrameView" native="true"/>
@@ -380,7 +369,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>850</width>
+     <width>1381</width>
      <height>27</height>
     </rect>
    </property>
