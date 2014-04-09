@@ -9,14 +9,17 @@ def bytes_to_string(bytes):
 
 def disassemble_x86(data, base=0):
     assert isinstance(data, basestring)
+    base = long(base)
     return xed._disassemble_x86(data, base)
 
 def disassemble_x64(data, base=0):
     assert isinstance(data, basestring)
+    base = long(base)
     return xed._disassemble_x64(data, base)
 
 def disassemble_x64_until_bb_end(data, base=0):
     assert isinstance(data, basestring)
+    base = long(base)
     return xed._disassemble_x64_until_bb_end(data, base)
 
 def get_source_location(bb_dict):
