@@ -1,6 +1,6 @@
-import xed
-import disass
-import elf as elf
+from xed import xed
+from elf import disass
+from elf import elffile as elf
 import unittest
 
 class TestDisass(unittest.TestCase):

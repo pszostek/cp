@@ -1,6 +1,6 @@
 import unittest
-from disass import disassemble_x64
-from xed import (xed_decoded_inst_t,
+from elf.disass import disassemble_x64
+from xed.xed import (xed_decoded_inst_t,
                  xed_decoded_inst_get_iclass,
                  xed_iclass_enum_t2str)
 #xed.xed_iclass_enum_t2str(xed.xed_decoded_inst_get_iclass(inst))

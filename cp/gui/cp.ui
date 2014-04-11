@@ -27,6 +27,33 @@
           <string>Data manipulation</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_3">
+          <item row="3" column="0">
+           <layout class="QVBoxLayout" name="verticalLayout_4">
+            <item>
+             <widget class="QPushButton" name="filterGroupBoxButton">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>&lt;&lt;&lt; Filters</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="FilterGroupBox" name="filterGroupBox">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="title">
+               <string>Filters</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
           <item row="0" column="0">
            <layout class="QGridLayout" name="gridLayout_2">
             <item row="2" column="0">
@@ -39,7 +66,7 @@
                </widget>
               </item>
               <item>
-               <widget class="PivotComboBox" name="rowComboBox1" native="true">
+               <widget class="PivotComboBox" name="rowComboBox1">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -64,7 +91,7 @@
                </widget>
               </item>
               <item>
-               <widget class="PivotComboBox" name="rowComboBox2" native="true">
+               <widget class="PivotComboBox" name="rowComboBox2">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -89,7 +116,7 @@
                </widget>
               </item>
               <item>
-               <widget class="PivotComboBox" name="rowComboBox3" native="true">
+               <widget class="PivotComboBox" name="rowComboBox3">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -138,7 +165,7 @@
                </widget>
               </item>
               <item>
-               <widget class="PivotComboBox" name="columnComboBox1" native="true">
+               <widget class="PivotComboBox" name="columnComboBox1">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -160,13 +187,13 @@
                   <height>16777215</height>
                  </size>
                 </property>
-                <property name="editable" stdset="0">
+                <property name="editable">
                  <bool>false</bool>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="PivotComboBox" name="columnComboBox2" native="true">
+               <widget class="PivotComboBox" name="columnComboBox2">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -191,7 +218,7 @@
                </widget>
               </item>
               <item>
-               <widget class="PivotComboBox" name="columnComboBox3" native="true">
+               <widget class="PivotComboBox" name="columnComboBox3">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -279,7 +306,14 @@
              <widget class="PivotComboBox" name="displayedValueComboBox"/>
             </item>
             <item row="2" column="1">
-             <widget class="DataFrameView" name="dataFrameView" native="true"/>
+             <widget class="DataFrameView" name="dataFrameView">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>3</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>
@@ -438,13 +472,18 @@
  </widget>
  <customwidgets>
   <customwidget>
+   <class>FilterGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>filtergroupbox.h</header>
+  </customwidget>
+  <customwidget>
    <class>PivotComboBox</class>
-   <extends>QWidget</extends>
+   <extends>QComboBox</extends>
    <header>pivotcombobox.h</header>
   </customwidget>
   <customwidget>
    <class>DataFrameView</class>
-   <extends>QWidget</extends>
+   <extends>QTableView</extends>
    <header>dataframeview.h</header>
   </customwidget>
  </customwidgets>

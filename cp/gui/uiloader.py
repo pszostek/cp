@@ -10,6 +10,7 @@ class UiLoader(QUiLoader):
         self.customWidgets = set()
 
     def createWidget(self, class_name, parent=None, name=''):
+        print "class_name", class_name
         if class_name not in self.availableWidgets():
             print self._customWidgetNames()
             if class_name in self._customWidgetNames():

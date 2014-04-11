@@ -1,5 +1,5 @@
 import unittest
-import elf
+from elf import elffile as elf
 #from xed import xed_iclass_enum_t2str, xed_decoded_inst_get_iclass
 
 class TestELFFile(unittest.TestCase):
@@ -31,7 +31,7 @@ class TestELFFile(unittest.TestCase):
             self.assertTrue(section_name in section_names)
 
     def test_get_symbol_text(self):
-        import disass
+        from elf import disass
         text = self.elf.get_symbol_text("main")
         inst_list = disass.disassemble_x64(text)
         self.assertEqual(len(inst_list), 66)
