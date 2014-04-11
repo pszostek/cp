@@ -2,88 +2,22 @@
 
 from PySide.QtGui import *
 from PySide.QtCore import *
-from PySide.QtUiTools import QUiLoader
-import pandas
 import signal
 import os
 import sys
 import time
 import pivot
+from istateful import IStateful
 from pandas import DataFrame
 from functools import partial
-from gui.qtpandas import DataFrameModel, DataFrameView, ColorDelegate
+from gui.qtpandas import DataFrameModel, DataFrameView#, ColorDelegate
 from gui.uiloader import loadUi
-from collections import (defaultdict, deque)
-
+from collections import deque
+from gui.pivot_combo_box import PivotComboBox
+from gui.foldable_widget import FilterWindow
+from gui.filter_group_box import FilterGroupBox
 
 C_COLUMN, C_ROW = 0, 1
-
-class IStateful(object):
-    def getState(self):
-        pass
-
-    def setState(self, state):
-        pass
-
-class PivotComboBox(QComboBox, IStateful):
-
-    def __init__(self, parent=None):
-        super(PivotComboBox, self).__init__(parent)
-        self.role = None
-        self.level = None
-        self.disabledRows = []
-        self.previous_index = None
-
-    def clear(self):
-        super(PivotComboBox, self).clear()
-        self.insertItem(0, "", None)
-
-    def enableItem(self, row):
-        if row not in self.disabledRows:
-            return
-        toEnableIndex = self.model().index(row, 0)
-        self.model().setData(toEnableIndex, 1 | 32, Qt.UserRole - 1)
-        del self.disabledRows[self.disabledRows.index(row)]
- 
-    def disableItem(self, row):
-        toDisableIndex = self.model().index(row, 0)
-        self.model().setData(toDisableIndex, 0, Qt.UserRole - 1)
-        self.disabledRows.append(row)
-
-    def mousePressEvent(self, event):
-        self.previous_index = self.currentIndex()
-        super(PivotComboBox, self).mousePressEvent(event)
-
-    def previousIndex(self):
-        return self.previous_index
-
-    def getState(self):
-        row_count = self.model().rowCount()
-        items = []
-        for idx in xrange(1, row_count):
-            items.append((self.itemText(idx), self.itemData(idx)))
-        return [self.role,
-                self.level,
-                self.disabledRows,
-                self.previous_index,
-                self.currentIndex(),
-                self.isEnabled(),
-                items]
-
-    def setState(self, state):
-        self.clear()
-        (self.role,
-            self.level,
-            self.disabledRows,
-            self.previous_index,
-            current_index,
-            is_enabled,
-            items) = state
-        for item in reversed(items):
-            print ("item", item[0], item[1], self.count())
-            self.insertItem(1, item[0], item[1]) # insert at #1, #0 is taken by ""
-        self.setCurrentIndex(current_index)
-        self.setEnabled(is_enabled)
 
 
 class MainWindow(QMainWindow, IStateful):
@@ -91,7 +25,7 @@ class MainWindow(QMainWindow, IStateful):
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.customWidgets = [PivotComboBox, DataFrameView]
+        self.customWidgets = [PivotComboBox, DataFrameView, FilterGroupBox]
         loadUi('gui/cp.ui', baseinstance=self,
                customWidgets=self.customWidgets)
 
@@ -141,10 +75,27 @@ class MainWindow(QMainWindow, IStateful):
         self.dataFileContent.setShowGrid(True)
         self.dataFileContent.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.fileListChanged.connect(self.addNewItemsToComboBoxes)
+
+        print(dir(self))
+        self.filterGroupBoxButton.released.connect(self.toggleFilterGroupBox)
+        self.filterGroupBox.hide()
+        print(type(self.filterGroupBox))
+       # self.filterCheckBox.stateChanged.connect(self.toggleFilter)
         ####
         self.dataFrames = dict()  # (path, fileObject) dictionary
+        self.dataDisplayed = False
+        self.filtersDisplayed = False
 
     ### SLOTS ###
+
+    def toggleFilterGroupBox(self):
+        self.filtersDisplayed = not self.filtersDisplayed
+        if self.filtersDisplayed:
+            self.filterGroupBox.show()
+            self.filterGroupBoxButton.setText(">>> Filters")
+        else:
+            self.filterGroupBox.hide()
+            self.filterGroupBoxButton.setText("<<< Filters")
 
     def addDataFile(self):
         selected_file_paths = QFileDialog.getOpenFileNames(
@@ -152,7 +103,6 @@ class MainWindow(QMainWindow, IStateful):
         if not selected_file_paths:
             return
         for selected_file_path in selected_file_paths:
-            print selected_file_path
             if selected_file_path not in self.dataFrames.keys():
                 try:
                     self._addDataFrameByPath(selected_file_path)
@@ -168,23 +118,33 @@ class MainWindow(QMainWindow, IStateful):
                     "Chosen file is already open!")
 
     def setState(self, state):
+        import StringIO
         for combo in self.getColumnCombos() + self.getRowCombos():
             combo.setState(state.popleft())
         self.displayedValueComboBox.setState(state.popleft())
         self.dataFrames = {}
-        data_frame_paths = state.popleft()
 
+        data_frame_paths = state.popleft()
         self.dataFilesList.clear()
         for data_frame_path in data_frame_paths:
             self._addDataFrameByPath(data_frame_path)
 
+        data_frame_string = state.popleft()
+        f = StringIO.StringIO(data_frame_string)
+        self.dataFrameView.setDataFrame(DataFrame.from_csv(f))
 
     def getState(self):
+        import StringIO
         state = deque()
         for combo in self.getColumnCombos()+self.getRowCombos():
             state.append(combo.getState())
         state.append(self.displayedValueComboBox.getState())
         state.append(self.dataFrames.keys())
+
+        f = StringIO.StringIO()
+        self.dataFrameView.dataModel.df.to_csv(f)
+        state.append(f.getvalue())
+
         return state
 
     def openProject(self):
@@ -198,10 +158,8 @@ class MainWindow(QMainWindow, IStateful):
     def saveProjectAs(self):
         import dill as pickle
         path = QFileDialog.getSaveFileName()
-        print path
         output_file = open(path[0], 'wb')
         state = self.getState()
-        print(state)
         pickle.dump(state, output_file)
         output_file.close()
 
@@ -216,7 +174,6 @@ class MainWindow(QMainWindow, IStateful):
             self.dataFilesList.takeItem(
                 self.dataFilesList.indexFromItem(item).row())
             del self.dataFrames[item.data(Qt.ItemDataRole)]
-        print "file removed"
 
     def showDataFrameOutlook(self, listItem):
         chosenFilePath = listItem.data(Qt.ItemDataRole)
@@ -258,11 +215,27 @@ class MainWindow(QMainWindow, IStateful):
         return chosen_rows, chosen_columns, displayed_value
 
     def pivotData(self):
+        from pivot import PivotEngineException
+        # if self.filterCheckBox.isChecked():
+        #     filter_string = self.filterLineEdit.text()
+        # else:
+        #     filter_string = None
+        filter_string = self.filterLineEdit.text()
+        ###
         row_tuples, column_tuples, displayed_value = self.getComboChoices()
-        pivoted_data_frame = pivot.pivot(
-            self.dataFrames, row_tuples, column_tuples, displayed_value)
-      #  self.dataFrameView.setItemDelegate(ColorDelegate())
-        self.dataFrameView.setDataFrame(pivoted_data_frame)
+        try:
+            pivoted_data_frame = pivot.pivot(
+                data_frames_dict=self.dataFrames,
+                column_tuples=column_tuples,
+                row_tuples=row_tuples,
+                displayed_value=displayed_value,
+                filter_string=filter_string)
+          #  self.dataFrameView.setItemDelegate(ColorDelegate())
+            self.dataFrameView.setDataFrame(pivoted_data_frame)
+        except PivotEngineException, e:
+            QMessageBox.warning(self,
+                                "Error",
+                                str(e))
 
     def getColumnCombos(self):
         return [self.columnComboBox1,
@@ -387,21 +360,6 @@ class MainWindow(QMainWindow, IStateful):
             label = str(dataFrame.columns.tolist()[i])
             proxyModel.setHeaderData(i, Qt.Orientation.Horizontal, label)
         tableWidget.setModel(proxyModel)
-       #  from itertools import repeat
-       #  horizontalHeaderView = QHeaderView(Qt.Orientation.Horizontal, tableWidget)
-       # horizontalModel = QStringListModel(list(repeat('1', 18)))
-       # horizontalModel = QStandardItemModel(tableWidget)
-       #  horizontalModel = QStandardItemModel()
-       #  for i in xrange(len(dataFrame.columns.tolist())):
-       #      label = str(dataFrame.columns.tolist()[i])
-       #      item = QStandardItem(label)
-       #      print dataFrame.columns.tolist()[i]
-       #      print item
-       #      horizontalModel.insertColumn(0, [item])
-       #      horizontalModel.setData(horizontalModel.createIndex(i,0), label)
-       #  horizontalHeaderView.setModel(horizontalModel)
-       #  horizontalHeaderView.setVisible(True)
-       #  tableWidget.setHorizontalHeader(horizontalHeaderView)
 
         end_time = time.time()
         self.statusBar().showMessage(

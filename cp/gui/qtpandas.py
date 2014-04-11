@@ -1,7 +1,6 @@
 '''
 Easy integration of DataFrame into pyqt framework
 
-@author: Jev Kuznetsov
 '''
 from __future__ import print_function
 from PySide import QtCore, QtGui
@@ -12,6 +11,7 @@ QVariant = lambda value=None: value
 import pandas
 from itertools import repeat
 from pandas import DataFrame, Index
+from collections import deque
 # try:
 #     from hierarchical_header import HierarchicalHeaderView
 # except ImportError:
@@ -28,6 +28,8 @@ class DataFrameModel(QAbstractTableModel):
     def __init__(self, dataFrame=None, parent=None):
         super(DataFrameModel, self).__init__(parent)
         self.df = dataFrame
+        if dataFrame is not None:
+            self.setDataFrame(dataFrame)
         self.sortSection = 0
         self.sortOrder = None
         self._horizontalHeaderModel = QStandardItemModel()
@@ -35,11 +37,27 @@ class DataFrameModel(QAbstractTableModel):
 
     def setDataFrame(self, dataFrame):
         assert dataFrame is not None
+        self.modelAboutToBeReset.emit()
         self.df = dataFrame
-        print(dataFrame.columns)
-        print(dataFrame.index)
+
+        self._horizontalHeaderModel = QStandardItemModel()
+        # self._horizontalHeaderModel.modelAboutToBeReset.emit()
+        # self._horizontalHeaderModel.beginResetModel()
+        # self._horizontalHeaderModel.reset()
+        # self._horizontalHeaderModel.endResetModel()
         self.fillHeaderModel(self._horizontalHeaderModel, dataFrame.columns)
+        self._horizontalHeaderModel.modelReset.emit()
+
+        self._verticalHeaderModel = QStandardItemModel()
+        # self._verticalHeaderModel.modelAboutToBeReset.emit()
+        # self._verticalHeaderModel.beginResetModel()
+        # self._verticalHeaderModel.reset()
+        # self._verticalHeaderModel.endResetModelw()
         self.fillHeaderModel(self._verticalHeaderModel, dataFrame.index)
+        self._verticalHeaderModel.modelReset.emit()
+        self.modelReset.emit()
+        self.headerDataChanged.emit(Qt.Vertical, 0,1)
+        self.headerDataChanged.emit(Qt.Horizontal, 0,1)
 
     # def signalUpdate(self):
     #     ''' tell viewers to update their data (this is full update, not
@@ -83,6 +101,8 @@ class DataFrameModel(QAbstractTableModel):
         else:
             pass
             #print(type(index), index)
+    def dataInt(self, index):
+        return self.df.iloc[index.row(), index.column()]
 
     def data(self, index, role):
         if role == Qt.DisplayRole and index.isValid():
@@ -99,9 +119,7 @@ class DataFrameModel(QAbstractTableModel):
         return self.df.shape[1]
 
     def sort(self, column, order):
-        print("sort")
         if order == self.sortOrder and column == self.sortSection:
-            print("skip")
             return
         column_list = self.df.columns.tolist()
         column_tuple = column_list[column]
@@ -113,7 +131,6 @@ class DataFrameModel(QAbstractTableModel):
             ascending = False
         self.sortSection = column
         self.df.sort([column_tuple], inplace=True, ascending=ascending)
-        print(self.df.index)
         topLeft = self.createIndex(0,0)
         bottomRight = self.createIndex(df.shape[0]-1, df.shape[1]-1)
         self._verticalHeaderModel = QStandardItemModel()
@@ -132,6 +149,54 @@ class DataFrameModel(QAbstractTableModel):
         #print("headerData", orientation, section, role)
         #return "1"
         pass
+
+    def getMinimum(self):
+        return self.df.min()
+
+    def getMaximum(self):
+        return self.df.max()
+
+class ColorDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super(ColorDelegate, self).__init__(parent)
+        self._minimum = None
+        self._maximum = None
+
+    def paint(self, painter, option, index):
+        if self._minimum is None:
+            self._minimum = index.model().getMinimum()
+        if self._maximum is None:
+            self._maximum = index.model().getMaximum()
+        value = index.model().dataInt(index)/max(self._maximum)
+        if value == 0:
+            red = green = blue = 0
+        if 1/8 <= value and value > 0:
+            red = 0
+            green = 0
+            blue = 4*value + .5
+        elif 1/8 < value and value <= 3/8:
+            red = 0
+            green = 4*value - .5
+            blue = 0
+        elif 3/8 < value and value <= 5/8:
+            red = 4*value - 1.5
+            green = 1
+            blue = -4*value + 2.5
+        elif (5/8 < value and value <= 7/8):
+            red = 1
+            green = -4*value + 3.5
+            blue = 0
+        elif (7/8 < value and value <= 1):
+            red = -4*value + 4.5
+            green = 0
+            blue = 0
+        else:
+            red = .5
+            green = 0
+            blue = 0
+        background = QtGui.QColor.fromRgb(255*red, 255*green, 255*blue, 100)
+        painter.fillRect(option.rect, background)
+        super(ColorDelegate, self).paint(painter, option, index)
 
 class DataFrameView(QTableView):
 
@@ -153,51 +218,53 @@ class DataFrameView(QTableView):
         if dataFrame is None:
             self.dataModel = None
         else:
-            self.setModel(dataFrame=dataFrame)
+            self.setDataFrame(dataFrame=dataFrame)
 
-    def setModel(self, dataFrame):
-        assert isinstance(dataFrame, DataFrame)
-        assert dataFrame is not None
+    def setModel(self, model):
+        assert isinstance(model, DataFrameModel) or (model is None)
+        super(DataFrameView, self).setModel(model)
 
-        self.dataModel = DataFrameModel()
-        self.dataModel.setDataFrame(dataFrame)
-        self.dataModel.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
+    def setDataFrame(self, dataFrame):
+        assert isinstance(dataFrame, DataFrame) or (dataFrame is None)
+        if dataFrame is not None:
+            # if self.dataModel is None:
+            #     self.dataModel = DataFrameModel()
+            # self.dataModel.setDataFrame(dataFrame)
+            self.dataModel = DataFrameModel()
+            self.dataModel.setDataFrame(dataFrame)
+            self.dataModel.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
+            self.update()
+
         super(DataFrameView, self).setModel(self.dataModel)
 
 
 def testDf():
     ''' creates test dataframe '''
-    import pandas as pd
-    import numpy as np
-    cols = pd.MultiIndex.from_arrays(
+    cols = pandas.MultiIndex.from_arrays(
         [["foo", "foo", "bar", "bar"], ["a", "b", "c", "d"]])
-    df = pd.DataFrame(np.random.randn(5, 4), index=range(4, 9), columns=cols)
+    df = pandas.DataFrame(np.random.randn(5, 4), index=range(4, 9), columns=cols)
     return df
 
 def testDf1():
-    import pandas as pd
-    import numpy as np
     arrays = [['bar', 'bar', 'baz', 'baz', 'foo', 'foo', 'qux', 'qux'],
              ['one', 'two', 'one', 'two', 'one', 'two', 'one', 'two']]
     tuples = list(zip(*arrays))
-    index = pd.MultiIndex.from_tuples(tuples, names=['first', 'second'])
-    df = pd.DataFrame(np.random.randn(3, 8), index=['Aaaa', 'Bbbb', 'Cccc'], columns=index)
+    index = pandas.MultiIndex.from_tuples(tuples, names=['first', 'second'])
+    df = pandas.DataFrame(np.random.randn(3, 8), index=['Aaaa', 'Bbbb', 'Cccc'], columns=index)
     return df
 
 
 if __name__ == '__main__':
     import sys
-    import numpy as np
 
     app = QApplication(sys.argv)
     #df = testDf1()  # make up some data
     df = DataFrame.from_csv('../fullcms.csv', index_col=[0, 1, 2], sep=',')
     # print df.columns
     # print df.index
-    import random
     #rows = random.sample(df.index, 50)
     #df = df.ix[rows]
-    df = df[:10]
+    df = df[:1000]
     widget = DataFrameView(dataFrame=df)
     widget.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.DescendingOrder)
     widget.setSortingEnabled(True)

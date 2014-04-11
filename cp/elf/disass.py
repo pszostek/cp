@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import xed
-import elf
+from xed import xed
+from elf import elffile
 import addr2line
 
 def bytes_to_string(bytes):
@@ -75,7 +75,7 @@ libc.so.6 312       0                   1           1           1             6
     index_tuples = []
     for dso_path, offset_list in bb_dict.items():
         if prev_dso_path != dso_path:
-            elffile = elf.ELFFile(dso_path)
+            elffile = elffile.ELFFile(dso_path)
         for bb_offset in offset_list:
             bb = get_basic_block(elffile, bb_offset)
             offset_inside_bb = 0
@@ -162,7 +162,7 @@ libc.so.6 312       0                   1           1           1             6
 
 
 def get_basic_block(module, offset):
-    assert isinstance(module, elf.ELFFile)
+    assert isinstance(module, elffile.ELFFile)
    # assert isinstance(offset, int)
     fd = module._fd
 
@@ -204,7 +204,7 @@ def get_basic_blocks(module, offset_list):
     return ret
 
 if __name__ == "__main__":
-    e = elf.ELFFile("/home/paszoste/cp/tests/files/test_elf")
+    e = elffile.ELFFile("/home/paszoste/cp/tests/files/test_elf")
     bb = get_basic_block(e, 0x81f)
     for inst in bb:
         print inst.get_mnemonic_intel(), inst.get_length(), inst.get_operand_width(), inst.get_number_of_operands(), bytes_to_string(inst.get_bytes())
