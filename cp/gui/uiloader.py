@@ -10,14 +10,10 @@ class UiLoader(QUiLoader):
         self.customWidgets = set()
 
     def createWidget(self, class_name, parent=None, name=''):
-        print "class_name", class_name
         if class_name not in self.availableWidgets():
-            print self._customWidgetNames()
             if class_name in self._customWidgetNames():
-                print class_name, "1'"
                 widgetCls = [cls for cls in self.customWidgets if cls.__name__ == class_name][0]
                 widget = widgetCls(parent=parent)
-                print widgetCls
                 if self.baseinstance:
                     print name
                     # set an attribute for the new child widget on the base
