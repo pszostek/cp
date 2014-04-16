@@ -14,18 +14,22 @@ from gui.qtpandas import DataFrameModel, DataFrameView#, ColorDelegate
 from gui.uiloader import loadUi
 from collections import deque
 from gui.pivot_combo_box import PivotComboBox
-from gui.foldable_widget import FilterWindow
-from gui.filter_group_box import FilterGroupBox
+from gui.filter_widget import FilterWidget
+from gui.qprogressindicator import QProgressIndicator
+
 
 C_COLUMN, C_ROW = 0, 1
 
 
 class MainWindow(QMainWindow, IStateful):
-    fileListChanged = Signal(list)
+    newDataFrameAdded = Signal(list)
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.customWidgets = [PivotComboBox, DataFrameView, FilterGroupBox]
+        self.customWidgets = [PivotComboBox,
+                              DataFrameView,
+                              FilterWidget,
+                              QProgressIndicator]
         loadUi('gui/cp.ui', baseinstance=self,
                customWidgets=self.customWidgets)
 
@@ -34,6 +38,7 @@ class MainWindow(QMainWindow, IStateful):
         self.undoButton.setIcon(QIcon.fromTheme("edit-undo"))
         self.openFileButton.setIcon(QIcon.fromTheme("document-open"))
         self.removeFileButton.setIcon(QIcon.fromTheme("edit-delete"))
+       # self.indicatorWidget.setDisabled(True)
 
         self.applyComboBoxesButton.clicked.connect(self.pivotData)
         self.rowComboBox1.activated.connect(
@@ -74,28 +79,35 @@ class MainWindow(QMainWindow, IStateful):
         self.dataFileContent.setSortingEnabled(False)
         self.dataFileContent.setShowGrid(True)
         self.dataFileContent.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.fileListChanged.connect(self.addNewItemsToComboBoxes)
+        self.newDataFrameAdded.connect(self.addNewItemsToComboBoxes)
+        self.newDataFrameAdded.connect(self.addNewItemsToFilters)
 
-        print(dir(self))
-        self.filterGroupBoxButton.released.connect(self.toggleFilterGroupBox)
-        self.filterGroupBox.hide()
-        print(type(self.filterGroupBox))
-       # self.filterCheckBox.stateChanged.connect(self.toggleFilter)
+        self.filterWidgetButton.released.connect(self.togglefilterWidget)
+        self.filterWidget.setEnabled(False)
+        self.filterWidget.hide()
+        self.filterWidget.newFilterAdded.connect(self.onNewFilterAdded)
+
         ####
         self.dataFrames = dict()  # (path, fileObject) dictionary
         self.dataDisplayed = False
         self.filtersDisplayed = False
 
-    ### SLOTS ###
 
-    def toggleFilterGroupBox(self):
+        self.filterWidget.setDataFrameDict(self.dataFrames)
+
+    ### SLOTS ###
+    def onNewFilterAdded(self):
+        if self.dataDisplayed:
+            self.pivotData()
+
+    def togglefilterWidget(self):
         self.filtersDisplayed = not self.filtersDisplayed
         if self.filtersDisplayed:
-            self.filterGroupBox.show()
-            self.filterGroupBoxButton.setText(">>> Filters")
+            self.filterWidget.show()
+            self.filterWidgetButton.setText(">>> Filters")
         else:
-            self.filterGroupBox.hide()
-            self.filterGroupBoxButton.setText("<<< Filters")
+            self.filterWidget.hide()
+            self.filterWidgetButton.setText("<<< Filters")
 
     def addDataFile(self):
         selected_file_paths = QFileDialog.getOpenFileNames(
@@ -105,8 +117,8 @@ class MainWindow(QMainWindow, IStateful):
         for selected_file_path in selected_file_paths:
             if selected_file_path not in self.dataFrames.keys():
                 try:
-                    self._addDataFrameByPath(selected_file_path)
-                    self.fileListChanged.emit(self._getAvailableColumns())
+                    new_df = self._addDataFrameByPath(selected_file_path)
+                    self.newDataFrameAdded.emit(new_df)
                 except:
                     QMessageBox.critical(
                         self, "Error", "Chosen file is not in the CSV format")
@@ -119,7 +131,7 @@ class MainWindow(QMainWindow, IStateful):
 
     def setState(self, state):
         import StringIO
-        for combo in self.getColumnCombos() + self.getRowCombos():
+        for combo in self._getColumnCombos() + self._getRowCombos():
             combo.setState(state.popleft())
         self.displayedValueComboBox.setState(state.popleft())
         self.dataFrames = {}
@@ -136,7 +148,7 @@ class MainWindow(QMainWindow, IStateful):
     def getState(self):
         import StringIO
         state = deque()
-        for combo in self.getColumnCombos()+self.getRowCombos():
+        for combo in self._getColumnCombos()+self._getRowCombos():
             state.append(combo.getState())
         state.append(self.displayedValueComboBox.getState())
         state.append(self.dataFrames.keys())
@@ -181,8 +193,8 @@ class MainWindow(QMainWindow, IStateful):
         self._fillTableFromDataFrame(self.dataFileContent, chosenDataFrame)
 
     def getComboChoices(self):
-        column_combos = self.getColumnCombos()
-        row_combos = self.getRowCombos()
+        column_combos = self._getColumnCombos()
+        row_combos = self._getRowCombos()
 
         chosen_rows = []
         chosen_columns = []
@@ -216,42 +228,36 @@ class MainWindow(QMainWindow, IStateful):
 
     def pivotData(self):
         from pivot import PivotEngineException
-        # if self.filterCheckBox.isChecked():
-        #     filter_string = self.filterLineEdit.text()
-        # else:
-        #     filter_string = None
-        filter_string = self.filterLineEdit.text()
-        ###
+        filters = self.filterWidget.getFilters()
         row_tuples, column_tuples, displayed_value = self.getComboChoices()
         try:
+            self.indicatorWidget.setEnabled(True)
+            self.indicatorWidget.startAnimation()
+
             pivoted_data_frame = pivot.pivot(
                 data_frames_dict=self.dataFrames,
                 column_tuples=column_tuples,
                 row_tuples=row_tuples,
                 displayed_value=displayed_value,
-                filter_string=filter_string)
+                filters=filters)
           #  self.dataFrameView.setItemDelegate(ColorDelegate())
             self.dataFrameView.setDataFrame(pivoted_data_frame)
+            self.dataDisplayed = True
+
+            self.indicatorWidget.stopAnimation()
+            self.indicatorWidget.setEnabled(False)
+
         except PivotEngineException, e:
             QMessageBox.warning(self,
                                 "Error",
                                 str(e))
 
-    def getColumnCombos(self):
-        return [self.columnComboBox1,
-                self.columnComboBox2,
-                self.columnComboBox3]
-
-    def getRowCombos(self):
-        return [self.rowComboBox1,
-                self.rowComboBox2,
-                self.rowComboBox3]
 
     def propagateComboBoxChange(self, source, index):
         level = source.level
 
         # if source.role == C_COLUMN:
-        #     for combo in self.getColumnCombos():
+        #     for combo in self._getColumnCombos():
 
         previous_index = source.previousIndex()
         if source.role == C_COLUMN:
@@ -296,19 +302,28 @@ class MainWindow(QMainWindow, IStateful):
                 if previous_index:
                     self.rowComboBox3.enableItem(previous_index)
 
-    def addNewItemsToComboBoxes(self, listOfColumns):
+    def addNewItemsToFilters(self, data_frame):
+        path = data_frame.path
+        table_name = os.path.basename(path)
+        self.filterWidget.addDataFrame(data_frame=data_frame,
+                                         table_name=table_name,
+                                         table_columns=data_frame.columns)
+        self.filterWidget.setEnabled(True)
+
+    def addNewItemsToComboBoxes(self, data_frame):
         if len(self.dataFrames) > 0:
             self.rowComboBox1.setEnabled(True)
             self.columnComboBox1.setEnabled(True)
-        self.rowComboBox1.clear()
-        self.rowComboBox2.clear()
-        self.rowComboBox3.clear()
-        self.columnComboBox1.clear()
-        self.columnComboBox2.clear()
-        self.columnComboBox3.clear()
-        self.displayedValueComboBox.clear()
+        # self.rowComboBox1.clear()
+        # self.rowComboBox2.clear()
+        # self.rowComboBox3.clear()
+        # self.columnComboBox1.clear()
+        # self.columnComboBox2.clear()
+        # self.columnComboBox3.clear()
+        # self.displayedValueComboBox.clear()
 
-        for path, column_name in listOfColumns:
+        for column_name in data_frame.columns:
+            path = data_frame.path
             table_name = os.path.basename(path)
             string = "%s::%s" % (table_name, column_name)
             user_data = (path, column_name)
@@ -321,6 +336,16 @@ class MainWindow(QMainWindow, IStateful):
             self.columnComboBox3.insertItem(1, string, user_data)
 
     ### PRIVATE FUNCTIONS ###
+
+    def _getColumnCombos(self):
+        return [self.columnComboBox1,
+                self.columnComboBox2,
+                self.columnComboBox3]
+
+    def _getRowCombos(self):
+        return [self.rowComboBox1,
+                self.rowComboBox2,
+                self.rowComboBox3]
 
     def _getAvailableColumns(self):
         columns = list()
@@ -340,8 +365,10 @@ class MainWindow(QMainWindow, IStateful):
             new_df = DataFrame.from_csv(
                 path, index_col=[0], sep=',', parse_dates=False)
         # print new_df.shape, new_df.columns
+        new_df.path = path
         self.dataFrames[path] = new_df
         self.dataFilesList.addItem(path)
+        return new_df
 
     def _fillTableFromDataFrame(self, tableWidget, dataFrame):
         assert isinstance(
