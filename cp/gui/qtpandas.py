@@ -45,6 +45,7 @@ class DataFrameModel(QAbstractTableModel):
         # self._horizontalHeaderModel.beginResetModel()
         # self._horizontalHeaderModel.reset()
         # self._horizontalHeaderModel.endResetModel()
+        # print(dataFrame.columns)
         self.fillHeaderModel(self._horizontalHeaderModel, dataFrame.columns)
         self._horizontalHeaderModel.modelReset.emit()
 
@@ -52,7 +53,8 @@ class DataFrameModel(QAbstractTableModel):
         # self._verticalHeaderModel.modelAboutToBeReset.emit()
         # self._verticalHeaderModel.beginResetModel()
         # self._verticalHeaderModel.reset()
-        # self._verticalHeaderModel.endResetModelw()
+        # self._verticalHeaderModel.endResetModel()
+        # print(dataFrame.index)
         self.fillHeaderModel(self._verticalHeaderModel, dataFrame.index)
         self._verticalHeaderModel.modelReset.emit()
         self.modelReset.emit()
@@ -66,6 +68,12 @@ class DataFrameModel(QAbstractTableModel):
 
     def fillHeaderModel(self, headerModel, index):
         from collections import defaultdict
+        from pandas import Int64Index
+        try:
+            from pandas import Float64Index
+        except:
+            Float64index = Int64Index
+
         if isinstance(index, pandas.MultiIndex):
             label_tuples = index.tolist()
             max_len = len(label_tuples[0])
@@ -87,8 +95,8 @@ class DataFrameModel(QAbstractTableModel):
                         for i in xrange(level+1, max_len): #invalidate the remaining part
                             last_items[i] = (None, None)
 
-        elif isinstance(index, pandas.Int64Index):# or \
-                #isinstance(index, pandas.Float64Index):
+        elif isinstance(index, Int64Index) or\
+                isinstance(index, Float64Index):
             rootItem = headerModel.invisibleRootItem()
             for entry in index:
                 cell = QStandardItem(str(entry))
@@ -232,6 +240,7 @@ class DataFrameView(QTableView):
             # self.dataModel.setDataFrame(dataFrame)
             self.dataModel = DataFrameModel()
             self.dataModel.setDataFrame(dataFrame)
+            print(dataFrame)
             self.dataModel.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
             self.update()
 
@@ -240,12 +249,14 @@ class DataFrameView(QTableView):
 
 def testDf():
     ''' creates test dataframe '''
+    import numpy as np
     cols = pandas.MultiIndex.from_arrays(
         [["foo", "foo", "bar", "bar"], ["a", "b", "c", "d"]])
     df = pandas.DataFrame(np.random.randn(5, 4), index=range(4, 9), columns=cols)
     return df
 
 def testDf1():
+    import numpy as np
     arrays = [['bar', 'bar', 'baz', 'baz', 'foo', 'foo', 'qux', 'qux'],
              ['one', 'two', 'one', 'two', 'one', 'two', 'one', 'two']]
     tuples = list(zip(*arrays))
@@ -253,19 +264,28 @@ def testDf1():
     df = pandas.DataFrame(np.random.randn(3, 8), index=['Aaaa', 'Bbbb', 'Cccc'], columns=index)
     return df
 
+def testDf2():
+    ''' creates test dataframe '''
+    import numpy as np
+    cols = pandas.MultiIndex.from_arrays([["a"],["b"]])
+    df = pandas.DataFrame(np.random.randn(5, 1), index=range(4, 9), columns=cols)
+    return df
+
 
 if __name__ == '__main__':
     import sys
 
     app = QApplication(sys.argv)
-    #df = testDf1()  # make up some data
-    df = DataFrame.from_csv('../fullcms.csv', index_col=[0, 1, 2], sep=',')
+    # df = testDf2()  # make up some data
+    # df = DataFrame.from_csv('../fullcms.csv', index_col=[0, 1, 2], sep=',')
     # print df.columns
     # print df.index
     #rows = random.sample(df.index, 50)
     #df = df.ix[rows]
-    df = df[:1000]
-    widget = DataFrameView(dataFrame=df)
+    # df = df[:1000]
+    df = DataFrame.from_csv("./pivoted.csv")
+    widget = DataFrameView()
+    widget.setDataFrame(df)
     widget.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.DescendingOrder)
     widget.setSortingEnabled(True)
     widget.show()
