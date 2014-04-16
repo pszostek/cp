@@ -14,6 +14,8 @@ class PivotComboBox(QComboBox, IStateful):
         self.disabledRows = []
         self.previous_index = None
 
+        self.insertItem(0, "", None)
+
     def clear(self):
         super(PivotComboBox, self).clear()
         self.insertItem(0, "", None)

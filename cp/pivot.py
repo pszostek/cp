@@ -60,7 +60,24 @@ def _find_common_column(df1, df2):
     return list(intersec)[0]
 
 
-def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filter_string):
+def _filter(data_frames_dict, filters):
+    print("filters", filters)
+    ret_dict = {}
+    filter_dict = {}
+    for filter_ in filters:
+        filter_dict[filter_.data_frame.path] = filter_
+    for data_frame_path, data_frame in data_frames_dict.items():
+        if data_frame_path in filter_dict.keys():
+            filter_ = filter_dict[data_frame_path]
+            query_string = "%s %s %s" % (filter_.column,
+                                         filter_.condition,
+                                         filter_.value)
+            ret_dict[data_frame_path] = data_frame.query(query_string)
+        else:
+            ret_dict[data_frame_path] = data_frame
+    return ret_dict
+
+def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters):
     """ Returns a pivoted data frame
 
     data_frames_dict: a dictionary with csv paths as keys and Pandas.DataFrame as values
@@ -72,6 +89,8 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filter_s
     row_names = [second_elem(row_tup) for row_tup in row_tuples]
     column_names = [second_elem(row_tup) for row_tup in column_tuples]
     # all_columns = row_names + column_names
+
+    data_frames_dict = _filter(data_frames_dict, filters)
 
     df_column_dict = defaultdict(set)
     for csv_path, column_name in column_tuples:
@@ -85,25 +104,18 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filter_s
     needed_data_frames = df_column_dict.keys()
     if len(needed_data_frames) > 1:
         data_frame = _merge(data_frames_dict, df_column_dict)
-        if filter_string:
-            try:
-                print(filter_string)
-            except Exception, e:
-                raise RuntimeError("Given filter expression is wrong:\n%s" % str(e))
     else:
         data_frame = data_frames_dict[df_column_dict.keys()[0]].reset_index()
 
     chosen_columns = reduce(lambda x, y: x.union(y), df_column_dict.values())
     data_frame.to_csv("./merged.csv")
 
-    if filter_string:
-        try:
-            data_frame = data_frame.query(filter_string)
-        except Exception, e:
-            raise DropException(str(e))
+    try:
+        data_frame = _drop(data_frame=data_frame,
+                           chosen_columns=chosen_columns)
+    except Exception, e:
+        raise DropException(str(e))
 
-    data_frame = _drop(data_frame=data_frame,
-                   chosen_columns=chosen_columns)
 
     from pandas.tools.pivot import pivot_table
     data_frame = pivot_table(data_frame,
@@ -112,5 +124,5 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filter_s
                           cols=column_names,
                           fill_value=0,
                           aggfunc='sum')
-    
+    print(data_frame)
     return data_frame

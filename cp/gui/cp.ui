@@ -30,7 +30,7 @@
           <item row="3" column="0">
            <layout class="QVBoxLayout" name="verticalLayout_4">
             <item>
-             <widget class="QPushButton" name="filterGroupBoxButton">
+             <widget class="QPushButton" name="filterWidgetButton">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -43,12 +43,9 @@
              </widget>
             </item>
             <item>
-             <widget class="FilterGroupBox" name="filterGroupBox">
+             <widget class="FilterWidget" name="filterWidget" native="true">
               <property name="enabled">
                <bool>true</bool>
-              </property>
-              <property name="title">
-               <string>Filters</string>
               </property>
              </widget>
             </item>
@@ -287,6 +284,9 @@
                </widget>
               </item>
               <item>
+               <widget class="QProgressIndicator" name="indicatorWidget" native="true"/>
+              </item>
+              <item>
                <widget class="QToolButton" name="undoButton">
                 <property name="text">
                  <string>...</string>
@@ -472,14 +472,19 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>FilterGroupBox</class>
-   <extends>QGroupBox</extends>
-   <header>filtergroupbox.h</header>
+   <class>FilterWidget</class>
+   <extends>QWidget</extends>
+   <header>filterwidget.h</header>
   </customwidget>
   <customwidget>
    <class>PivotComboBox</class>
    <extends>QComboBox</extends>
    <header>pivotcombobox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QProgressIndicator</class>
+   <extends>QWidget</extends>
+   <header>qprogressindicator.h</header>
   </customwidget>
   <customwidget>
    <class>DataFrameView</class>
