@@ -17,6 +17,10 @@ from gui.pivot_combo_box import PivotComboBox
 from gui.filter_widget import FilterWidget
 from gui.qprogressindicator import QProgressIndicator
 
+from async_gui.engine import Task
+from async_gui.toolkits.pyside import PySideEngine
+
+engine = PySideEngine()
 
 C_COLUMN, C_ROW = 0, 1
 
@@ -34,8 +38,6 @@ class MainWindow(QMainWindow, IStateful):
                customWidgets=self.customWidgets)
 
 #        self.tableWidget = qtpandas.DataFrameWidget(self)
-        self.redoButton.setIcon(QIcon.fromTheme("edit-redo"))
-        self.undoButton.setIcon(QIcon.fromTheme("edit-undo"))
         self.openFileButton.setIcon(QIcon.fromTheme("document-open"))
         self.removeFileButton.setIcon(QIcon.fromTheme("edit-delete"))
        # self.indicatorWidget.setDisabled(True)
@@ -70,6 +72,7 @@ class MainWindow(QMainWindow, IStateful):
         self.actionData_file.triggered.connect(self.addDataFile)
         self.actionSave_as.triggered.connect(self.saveProjectAs)
         self.actionProject.triggered.connect(self.openProject)
+        self.actionExport_view.triggered.connect(self.exportView)
 
         self.openFileButton.clicked.connect(self.addDataFile)
         self.removeFileButton.clicked.connect(self.removeDataFile)
@@ -96,6 +99,17 @@ class MainWindow(QMainWindow, IStateful):
         self.filterWidget.setDataFrameDict(self.dataFrames)
 
     ### SLOTS ###
+
+    def exportView(self):
+        path = QFileDialog.getSaveFileName(filter="CSV files (*.csv)", selectedFilter="CSV files (*.csv)")
+        try:
+            path = path[0]
+        except:
+            return
+        if path:
+            self.dataFrameView.dataModel.df.to_csv(path)
+
+
     def onNewFilterAdded(self):
         if self.dataDisplayed:
             self.pivotData()
@@ -111,7 +125,9 @@ class MainWindow(QMainWindow, IStateful):
 
     def addDataFile(self):
         selected_file_paths = QFileDialog.getOpenFileNames(
-            self, "Select data file")[0]
+            self,
+            caption="Select data file",
+            filter="CSV files (*.csv)")[0]
         if not selected_file_paths:
             return
         for selected_file_path in selected_file_paths:
@@ -161,7 +177,7 @@ class MainWindow(QMainWindow, IStateful):
 
     def openProject(self):
         import dill as pickle
-        path = QFileDialog.getOpenFileName()
+        path = QFileDialog.getOpenFileName(filter="C.Profiler project (*.cprof)")
         input_file = open(path[0], 'rb')
         state = pickle.load(input_file)
         input_file.close()
@@ -226,14 +242,15 @@ class MainWindow(QMainWindow, IStateful):
             self.displayedValueComboBox.currentIndex()))
         return chosen_rows, chosen_columns, displayed_value
 
+    @engine.async
     def pivotData(self):
         from pivot import PivotEngineException
         filters = self.filterWidget.getFilters()
         row_tuples, column_tuples, displayed_value = self.getComboChoices()
         try:
-            self.indicatorWidget.setEnabled(True)
+          #  self.indicatorWidget.setEnabled(True)
             self.indicatorWidget.startAnimation()
-
+            print("started")
             pivoted_data_frame = pivot.pivot(
                 data_frames_dict=self.dataFrames,
                 column_tuples=column_tuples,
@@ -244,8 +261,9 @@ class MainWindow(QMainWindow, IStateful):
             self.dataFrameView.setDataFrame(pivoted_data_frame)
             self.dataDisplayed = True
 
+            print("stopped")
             self.indicatorWidget.stopAnimation()
-            self.indicatorWidget.setEnabled(False)
+         #   self.indicatorWidget.setEnabled(False)
 
         except PivotEngineException, e:
             QMessageBox.warning(self,
