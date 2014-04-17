@@ -2,7 +2,7 @@
 
 class IStateful(object):
     def getState(self):
-        pass
+        raise NotImplementedError()
 
     def setState(self, state):
-        pass
+        raise NotImplementedError()
