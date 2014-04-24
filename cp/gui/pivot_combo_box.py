@@ -5,6 +5,7 @@ from PySide.QtCore import *
 from PySide.QtUiTools import QUiLoader
 from istateful import IStateful
 
+
 class PivotComboBox(QComboBox, IStateful):
 
     def __init__(self, parent=None):
@@ -26,7 +27,11 @@ class PivotComboBox(QComboBox, IStateful):
         toEnableIndex = self.model().index(row, 0)
         self.model().setData(toEnableIndex, 1 | 32, Qt.UserRole - 1)
         del self.disabledRows[self.disabledRows.index(row)]
- 
+
+    def enableAllItems(self):
+        for idx in xrange(self.count()):
+            self.enableItem(idx)
+
     def disableItem(self, row):
         toDisableIndex = self.model().index(row, 0)
         self.model().setData(toDisableIndex, 0, Qt.UserRole - 1)
@@ -62,6 +67,9 @@ class PivotComboBox(QComboBox, IStateful):
             is_enabled,
             items) = state
         for item in reversed(items):
-            self.insertItem(1, item[0], item[1]) # insert at #1, #0 is taken by ""
+            self.insertItem(
+                1,
+                item[0],
+                item[1])  # insert at #1, #0 is taken by ""
         self.setCurrentIndex(current_index)
         self.setEnabled(is_enabled)

@@ -15,7 +15,6 @@ class UiLoader(QUiLoader):
                 widgetCls = [cls for cls in self.customWidgets if cls.__name__ == class_name][0]
                 widget = widgetCls(parent=parent)
                 if self.baseinstance:
-                    print name
                     # set an attribute for the new child widget on the base
                     # instance, just like PyQt4.uic.loadUi does.
                     setattr(self.baseinstance, name, widget)

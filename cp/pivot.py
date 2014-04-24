@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import pandas
+import os
 from collections import defaultdict
 from PySide.QtGui import *
 from PySide.QtCore import *
@@ -61,29 +62,36 @@ def _find_common_column(df1, df2):
 
 
 def _filter(data_frames_dict, filters):
-    print("filters", filters)
-    ret_dict = {}
-    filter_dict = {}
-    for filter_ in filters:
-        filter_dict[filter_.data_frame.path] = filter_
-    for data_frame_path, data_frame in data_frames_dict.items():
-        if data_frame_path in filter_dict.keys():
-            filter_ = filter_dict[data_frame_path]
+    def _string_from_filter(filter_):
             query_string = "%s %s %s" % (filter_.column,
                                          filter_.condition,
                                          filter_.value)
+            return query_string
+    print("filters", filters)
+    ret_dict = {}
+    filter_dict = defaultdict(list)
+    for filter_ in filters:
+        filter_dict[filter_.data_frame_name].append(filter_)
+    for data_frame_path, data_frame in data_frames_dict.items():
+        data_frame_name = os.path.basename(data_frame_path)
+        if data_frame_name in filter_dict.keys():
+            filters = filter_dict[data_frame_name]
+            query_strings = map(_string_from_filter, filters)
+            query_string = ' and '.join(query_strings)
             ret_dict[data_frame_path] = data_frame.query(query_string)
         else:
             ret_dict[data_frame_path] = data_frame
     return ret_dict
 
-def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters):
+def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters, aggfunc=None):
     """ Returns a pivoted data frame
 
     data_frames_dict: a dictionary with csv paths as keys and Pandas.DataFrame as values
     column_tuples: ordered list of tuples (csv_path, name_of_chosen_column)
     row_tuples: ordered list of tuples (csv_path, name_of_chosen_column)
     """
+    if aggfunc is None:
+        aggfunc = 'sum'
     # make list of needed columns
     second_elem = lambda tup: tup[1]
     row_names = [second_elem(row_tup) for row_tup in row_tuples]
@@ -123,6 +131,6 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters)
                           rows=row_names,
                           cols=column_names,
                           fill_value=0,
-                          aggfunc='sum')
+                          aggfunc=aggfunc)
     print(data_frame)
     return data_frame

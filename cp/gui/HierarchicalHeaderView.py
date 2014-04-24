@@ -44,7 +44,6 @@ class private_data:
                 if curentLeafIndex == sectionIndex:
                     return curentIndex, curentLeafIndex
         return QtCore.QModelIndex(), curentLeafIndex
-
     def leafIndex(self, sectionIndex):
         if self.headerModel:
             curentLeafIndex = -1
@@ -252,7 +251,6 @@ class private_data:
                 sectionRect,
                 left)
         painter.setBrushOrigin(oldBO)
-
 
 class HierarchicalHeaderView(QtGui.QHeaderView):
     HorizontalHeaderDataRole = QtCore.Qt.UserRole
