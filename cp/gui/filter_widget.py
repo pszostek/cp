@@ -202,7 +202,7 @@ class FilterWidget(QWidget, IStateful):
     def _insertNewFilterIntoTable(self, new_filter, row, filter_index=None):
         from functools import partial
         if filter_index is None:
-            filter_index = cur_filter_number
+            filter_index = self.cur_filter_number
         row = self.filterTable.rowCount()
 
         self.filterTable.insertRow(row)

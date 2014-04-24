@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1381</width>
+    <width>1067</width>
     <height>883</height>
    </rect>
   </property>
@@ -247,13 +247,6 @@
                </widget>
               </item>
               <item>
-               <widget class="Line" name="line_5">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-               </widget>
-              </item>
-              <item>
                <widget class="QToolButton" name="applyComboBoxesButton">
                 <property name="text">
                  <string>Apply</string>
@@ -299,9 +292,6 @@
               </item>
              </layout>
             </item>
-            <item row="0" column="0">
-             <widget class="PivotComboBox" name="displayedValueComboBox"/>
-            </item>
             <item row="3" column="2">
              <widget class="DataFrameView" name="dataFrameView">
               <property name="sizePolicy">
@@ -312,8 +302,15 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
-             <widget class="QComboBox" name="aggFuncComboBox"/>
+            <item row="0" column="0">
+             <layout class="QVBoxLayout" name="verticalLayout_5">
+              <item>
+               <widget class="QComboBox" name="aggFuncComboBox"/>
+              </item>
+              <item>
+               <widget class="PivotComboBox" name="displayedValueComboBox"/>
+              </item>
+             </layout>
             </item>
            </layout>
           </item>
@@ -337,6 +334,9 @@
               </item>
               <item>
                <widget class="QToolButton" name="removeFileButton">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="text">
                  <string>Remove file</string>
                 </property>
@@ -389,7 +389,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1381</width>
+     <width>1067</width>
      <height>27</height>
     </rect>
    </property>

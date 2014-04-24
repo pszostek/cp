@@ -122,5 +122,6 @@ def collect(location):
 
 if __name__ == '__main__':
 	# Example usage
-	print( collect("/bin/ls") )
+	df = collect("../../libCore.so")
+	df.to_csv("libCore.so.symbols.csv")
 
