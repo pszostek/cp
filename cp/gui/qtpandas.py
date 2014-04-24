@@ -246,6 +246,9 @@ class DataFrameView(QTableView):
 
         super(DataFrameView, self).setModel(self.dataModel)
 
+    def getDataFrame(self):
+        return self.dataModel.df
+
 
 def testDf():
     ''' creates test dataframe '''
@@ -283,7 +286,7 @@ if __name__ == '__main__':
     #rows = random.sample(df.index, 50)
     #df = df.ix[rows]
     # df = df[:1000]
-    df = DataFrame.from_csv("./pivoted.csv")
+    df = DataFrame.from_csv("../view1.csv", index_col=[0,1])
     widget = DataFrameView()
     widget.setDataFrame(df)
     widget.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.DescendingOrder)
