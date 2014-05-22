@@ -42,6 +42,8 @@ END_LEGAL */
 #pragma unmanaged
 #endif
 
+#define XED_INLINE 
+
 #include "xed-common-hdrs.h"
 #include "xed-types.h"
 #include "xed-operand-enum.h"

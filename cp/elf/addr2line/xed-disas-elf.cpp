@@ -30,6 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
 /// @file disas-elf.cpp
 
+#include <limits.h>
 #include "xed-disas-elf.H"
 
 #if defined(XED_ELF_READER)
@@ -98,38 +99,59 @@ static map<xed_uint32_t,string> global_file_name_table;
  * compilation unit. */
 static map<xed_uint32_t,xed_uint32_t> file_name_table;
 
+struct entry_from_stt_file_symbol {
+    string *file;
+    xed_uint64_t ending_address;
+};
+
+static map<xed_uint64_t,entry_from_stt_file_symbol> table_from_stt_file_symbols; 
 
 
 
+// int incorrect_find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
+//     map<xed_uint64_t,line_number_entry_t*>::iterator iter =
+//         line_number_table.find(addr);
+//     if (iter == line_number_table.end())
+//         return 0;
+//     if (iter->second->file) {
+//         file = global_file_name_table[iter->second->file];
+//     }
+//     else {
+//         file = "Unknown";
+//     }
+//     line = iter->second->line;
+//     return 1;
+// }
 
-int incorrect_find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
-    map<xed_uint64_t,line_number_entry_t*>::iterator iter =
-        line_number_table.find(addr);
-    if (iter == line_number_table.end())
+int search_in_stt_file_symbols(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
+    //std::cout << "Not in DWARF - looking at STT_FILE symbols" << std::endl;
+    map<xed_uint64_t,entry_from_stt_file_symbol>::iterator iter = table_from_stt_file_symbols.upper_bound(addr);
+
+    if(iter == table_from_stt_file_symbols.end() || iter == table_from_stt_file_symbols.begin() )
         return 0;
-    if (iter->second->file) {
-        file = global_file_name_table[iter->second->file];
-    }
-    else {
-        file = "Unknown";
-    }
-    line = iter->second->line;
-    return 1;
+
+    iter--; 
+
+    if(addr > iter->second.ending_address)
+        return 0;
+
+    file = *(iter->second.file);
+    line = -1;
+    return 2;
 }
 
 int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
     map<xed_uint64_t,line_number_entry_t*>::iterator iter = correct_line_number_table.upper_bound(addr);
 
     if (iter == correct_line_number_table.end() || iter == correct_line_number_table.begin() )
-      return 0;
+      return search_in_stt_file_symbols(addr, file, line);
 
     iter--;
 
     // cout << "got request for " << hex << addr << " - found in " << iter->first << " - " << iter->second->ending_address << endl;
 
     if( addr > iter->second->ending_address ) {
-      // cout << "quitting - out of bounds" << endl;
-      return 0;
+      return search_in_stt_file_symbols(addr, file, line);
     }
 
     if (iter->second->file) {
@@ -406,6 +428,7 @@ process_elf32(xed_decode_file_info_t* fi,
     for(i=0;i<nsect;i++) {
         char* name = lookup32(shp[i].sh_name, start, 
                               shp[sect_strings].sh_offset);
+
         xed_bool_t text = false;
         if (shp[i].sh_type == SHT_PROGBITS) {
             if (tgt_section) {
@@ -507,7 +530,8 @@ process_elf64(xed_decode_file_info_t* fi,
     for( i=0;i<nsect;i++)  {
         char* name = lookup64(shp[i].sh_name, start, 
                               shp[sect_strings].sh_offset);
-        
+
+        //std::cout << "in process_elf64: name = " << name << std::endl;        
         text = false;
         if (shp[i].sh_type == SHT_PROGBITS) {
             if (tgt_section) {
@@ -550,13 +574,31 @@ void read_symbols64(void* start,
     char* a = static_cast<char*>(start);
     Elf64_Sym* p = reinterpret_cast<Elf64_Sym*>(a + offset);
     Elf64_Sym* q = reinterpret_cast<Elf64_Sym*>(a + offset + size);
+   
+    string *current_file = NULL;
+    
     while(p<q) {
         if (ELF64_ST_TYPE(p->st_info) == STT_FUNC) {
+
             char* name = lookup64(p->st_name, start, string_table_offset);
             if (xed_strlen(name) > 0) {
                 symtab.add_local_symbol(static_cast<xed_uint64_t>(p->st_value), 
                                         name, p->st_shndx);
             }
+            if(ELF64_ST_BIND(p->st_info) == STB_LOCAL) {
+                //std::cout << "STB_LOCAL symbol - " << name << " - " << p->st_value << " size " << p->st_size << std::endl;
+                if(current_file != NULL) {
+                    entry_from_stt_file_symbol entry;
+                    entry.file = current_file;
+                    entry.ending_address = p->st_value + p->st_size - 1;
+                    table_from_stt_file_symbols[p->st_value] = entry; 
+                }
+            }
+        }
+        if (ELF64_ST_TYPE(p->st_info) == STT_FILE) {
+           char* name = lookup64(p->st_name, start, string_table_offset);
+           current_file = new string(name);
+           //std::cout << "FOUND STT_FILE - " << name << std::endl;
         }
         p++; 
     }
@@ -590,22 +632,23 @@ void symbols_elf64(xed_decode_file_info_t* fi,
         if (shp[i].sh_type == SHT_STRTAB) {
             char* name = lookup32(shp[i].sh_name, start, 
                                   shp[sect_strings].sh_offset);
-            if (strcmp(name,".strtab")==0) {
-                if (fi->xml_format == 0) {
-                    cout << "# Found strtab: " << i 
-                         << " offset " <<shp[i].sh_offset
-                         << " size " << shp[i].sh_size 
-                         << endl;
-                }
+            //std::cout << "in symbols_elf64 - name = " << name << std::endl;
+             if (strcmp(name,".strtab")==0) {
+                //if (fi->xml_format == 0) {
+                //    cout << "# Found strtab: " << i 
+                //         << " offset " <<shp[i].sh_offset
+                //         << " size " << shp[i].sh_size 
+                //         << endl;
+                //}
                 string_table_offset = shp[i].sh_offset;
             }
             if (strcmp(name,".dynstr")==0) {
-                if (fi->xml_format == 0) {
-                    cout << "# Found dynamic strtab: " << i 
-                         << " offset " <<shp[i].sh_offset
-                         << " size " << shp[i].sh_size 
-                         << endl;
-                }
+                //if (fi->xml_format == 0) {
+                //    cout << "# Found dynamic strtab: " << i 
+                //         << " offset " <<shp[i].sh_offset
+                //         << " size " << shp[i].sh_size 
+                //         << endl;
+                //}
                 dynamic_string_table_offset = shp[i].sh_offset;
             }
         }
@@ -614,22 +657,22 @@ void symbols_elf64(xed_decode_file_info_t* fi,
     /* now read the symbols */
     for( i=0;i<nsect;i++)  {
         if (shp[i].sh_type == SHT_SYMTAB) {
-            if (fi->xml_format == 0) {
-                cout << "# Found symtab: " << i 
-                     << " offset " <<shp[i].sh_offset
-                     << " size " << shp[i].sh_size 
-                     << endl;
-            }
+            //if (fi->xml_format == 0) {
+            //    cout << "# Found symtab: " << i 
+            //         << " offset " <<shp[i].sh_offset
+            //         << " size " << shp[i].sh_size 
+            //         << endl;
+            //}
             read_symbols64(start,shp[i].sh_offset, shp[i].sh_size, 
                            string_table_offset,symtab);
         }
         else if (shp[i].sh_type == SHT_DYNSYM) {
-            if (fi->xml_format == 0) {
-                cout << "# Found dynamic symtab: " << i 
-                     << " offset " <<shp[i].sh_offset
-                     << " size " << shp[i].sh_size 
-                     << endl;
-            }
+            //if (fi->xml_format == 0) {
+            //    cout << "# Found dynamic symtab: " << i 
+            //         << " offset " <<shp[i].sh_offset
+            //         << " size " << shp[i].sh_size 
+            //         << endl;
+            //}
             read_symbols64(start,shp[i].sh_offset, shp[i].sh_size,
                            dynamic_string_table_offset, symtab);
         }
@@ -643,9 +686,11 @@ void read_symbols32(void* start,
                     Elf32_Word size,
                     Elf32_Off string_table_offset,
                     xed_symbol_table_t& symtab) {
+
     char* a = static_cast<char*>(start);
     Elf32_Sym* p = reinterpret_cast<Elf32_Sym*>(a + offset);
     Elf32_Sym* q = reinterpret_cast<Elf32_Sym*>(a + offset + size);
+    string *current_file = NULL;
     while(p<q) {
         if (ELF32_ST_TYPE(p->st_info) == STT_FUNC) {
             char* name = lookup32(p->st_name, start, string_table_offset);
@@ -653,6 +698,20 @@ void read_symbols32(void* start,
                 symtab.add_local_symbol(static_cast<xed_uint64_t>(p->st_value), 
                                         name, p->st_shndx);
             }
+            if(ELF32_ST_BIND(p->st_info) == STB_LOCAL) {
+                //std::cout << "STB_LOCAL symbol - " << name << " - " << p->st_value << " size " << p->st_size << std::endl;
+                if(current_file != NULL) {
+                    entry_from_stt_file_symbol entry;
+                    entry.file = current_file;
+                    entry.ending_address = p->st_value + p->st_size - 1;
+                    table_from_stt_file_symbols[p->st_value] = entry;
+                }
+            }
+        }
+        if(ELF32_ST_TYPE(p->st_info) == STT_FILE) {
+            char* name = lookup32(p->st_name, start, string_table_offset);
+            current_file = new string(name);
+            //std::cout << "FOUND STT_FILE - " << name << std::endl;
         }
         p++; 
     }
@@ -731,14 +790,55 @@ void symbols_elf32(xed_decode_file_info_t* fi,
     }
 }
 
+void late_init(xed_decoded_inst_t* xedd);
 
 void initialize_line_numbers(char* input_file_name) {
   void* region = 0;
   unsigned int len = 0;
   xed_disas_elf_init();
-  xed_map_region(input_file_name, &region, &len);
+  xed_example_utils_init();
 
-  read_dwarf_line_numbers(region, len); 
+  xed_state_t dstate;
+  xed_state_init(&dstate, XED_MACHINE_MODE_LEGACY_32, XED_ADDRESS_WIDTH_32b, XED_ADDRESS_WIDTH_32b);
+
+  xed_decode_file_info_t decode_info;  
+  decode_info.input_file_name = input_file_name;
+  decode_info.dstate = dstate;
+  decode_info.ninst = INT_MAX;
+  decode_info.decode_only = true;
+  decode_info.sixty_four_bit = false;
+  decode_info.target_section = 0;
+  decode_info.use_binary_mode = true;
+  decode_info.addr_start = 0;
+  decode_info.addr_end = 0;
+  decode_info.late_init = late_init;
+  decode_info.xml_format = 0;
+  decode_info.fake_base = 0;
+  decode_info.resync = 1;
+  decode_info.line_numbers = 1;
+  decode_info.dot_graph_output = 0;
+  decode_info.perf_tail_start = 0;
+  decode_info.ast = 0;
+
+  xed_disas_elf(&decode_info);
+
+
+  //xed_map_region(input_file_name, &region, &len);
+
+  //if(check_binary_64b(region)) {
+  //   std::cout << "Detected 64 bit ELF file" << std::endl;
+  //}
+  //else if(check_binary_32b(region)) {
+  //   std::cout << "Detected 32 bit ELF file" << std::endl;
+  //}
+  //else {
+  //   std::cout << "Unrecognized file" << std::endl;
+  //   exit(1);
+  //}
+  
+  //read_dwarf_line_numbers(region, len); 
+
+
 }
 
 
@@ -766,25 +866,25 @@ xed_disas_elf(xed_decode_file_info_t* fi)
 
         symbols_elf64(fi,region, symbol_table);
         make_symbol_vector(&symbol_table);
-        process_elf64(fi,region, len, fi->target_section, &local_dstate, 
-                      fi->ninst, fi->decode_only, 
-                      symbol_table, fi->addr_start, fi->addr_end);
+        //process_elf64(fi,region, len, fi->target_section, &local_dstate, 
+        //              fi->ninst, fi->decode_only, 
+        //              symbol_table, fi->addr_start, fi->addr_end);
     }
     else if (check_binary_32b(region)) {
         symbols_elf32(fi, region, symbol_table);
         make_symbol_vector(&symbol_table);
-        process_elf32(fi,region, len, fi->target_section, &fi->dstate, 
-                      fi->ninst, fi->decode_only,
-                      symbol_table, fi->addr_start, fi->addr_end);
+        //process_elf32(fi,region, len, fi->target_section, &fi->dstate, 
+        //              fi->ninst, fi->decode_only,
+        //              symbol_table, fi->addr_start, fi->addr_end);
     }
     else {
         cerr << "Not a recognized 32b or 64b ELF binary." << endl;
         exit(1);
     }
-    if (fi->xml_format == 0){
-        xed_print_decode_stats();
-        xed_print_encode_stats();
-    }
+    //if (fi->xml_format == 0){
+    //    xed_print_decode_stats();
+    //    xed_print_encode_stats();
+    //}
 }
  
 
