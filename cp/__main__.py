@@ -16,11 +16,6 @@ from collections import deque
 from gui.pivot_combo_box import PivotComboBox
 from gui.filter_widget import FilterWidget
 
-from async_gui.engine import Task
-from async_gui.toolkits.pyside import PySideEngine
-
-engine = PySideEngine()
-
 C_COLUMN, C_ROW = 0, 1
 
 
