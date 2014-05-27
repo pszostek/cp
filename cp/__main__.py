@@ -195,7 +195,6 @@ class MainWindow(QMainWindow, IStateful):
             column_tuples,
             displayed_value,
             aggfunc) = self._getComboChoices()
-        print("dv", displayed_value)
         if len(row_tuples) == 0 or len(column_tuples) == 0:
             QMessageBox.warning(self, "Error",
                     "Please choose at least one dimension in both axes")
@@ -204,6 +203,7 @@ class MainWindow(QMainWindow, IStateful):
             QMessageBox.warning(self, "Error",
                     "Please choose a dimension to be displayed")
             return
+        self.statusBar().showMessage("Processing.")
         try:
             pivoted_data_frame = pivot.pivot(
                 data_frames_dict=self.data_frames,
@@ -212,8 +212,10 @@ class MainWindow(QMainWindow, IStateful):
                 displayed_value=displayed_value,
                 filters=filters,
                 aggfunc=aggfunc)
+            #print(pivoted_data_frame.columns)
           #  self.dataFrameView.setItemDelegate(ColorDelegate())
             self.dataFrameView.setDataFrame(pivoted_data_frame)
+            self.statusBar().showMessage("Done.")
         except PivotEngineException, e:
             QMessageBox.warning(self,
                                 "Error",
