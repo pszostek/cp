@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from xed import xed
-from elf import elffile
+import elffile as elffile_mod
 import addr2line
 
 def bytes_to_string(bytes):
@@ -49,6 +49,46 @@ def get_source_location(bb_dict):
                      index=index,
                      columns=columns)
 
+def get_disassembly_for_basic_blocks(bb_dict):
+    """ Function that disassembles basic blocks at given offsets and returns disassembly text
+
+    bb_dict: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
+    returns a pandas.DataFrame containing disassembly in rows and indexed by DSO path and BB offset
+        for instance:
+                                  disassembly 
+dso_name  bb_offset inst_offset                                          
+libc.so.6 312       0                   1    
+                    1                   3   
+
+    """
+    assert isinstance(bb_dict, dict)
+    from collections import namedtuple
+    import pandas as pd
+    import numpy
+    Operand = namedtuple('Operand', ['type', 'width', 'name', 'action', 'elem'], verbose=False)
+    result_list = []
+    prev_dso_path = None
+    index_tuples = []
+    for dso_path, offset_list in bb_dict.items():
+        if prev_dso_path != dso_path:
+            elffile = elffile_mod.ELFFile(dso_path)
+        for bb_offset in offset_list:
+            bb = get_basic_block(elffile, bb_offset)
+            offset_inside_bb = 0
+            for inst in bb:
+                index_tuples.append((dso_path,
+                                    bb_offset,
+                                    offset_inside_bb))
+                result_list.append(inst.get_mnemonic_intel())
+                offset_inside_bb += inst.get_length()
+
+    index = pd.MultiIndex.from_tuples(index_tuples, names=['dso_path',
+                                                           'bb_offset',
+                                                           'inst_offset'])
+    ret_data_frame = pd.DataFrame(result_list,
+                                  index=index,
+                                  columns=['disassembly'])
+    return ret_data_frame
 
 def get_inst_lists_for_basic_blocks(bb_dict):
     """ Function that disassembles basic blocks at given offsets
@@ -68,14 +108,13 @@ libc.so.6 312       0                   1           1           1             6
     assert isinstance(bb_dict, dict)
     from collections import namedtuple
     import pandas as pd
-    import numpy
     Operand = namedtuple('Operand', ['type', 'width', 'name', 'action', 'elem'], verbose=False)
     result_list = []
     prev_dso_path = None
     index_tuples = []
     for dso_path, offset_list in bb_dict.items():
         if prev_dso_path != dso_path:
-            elffile = elffile.ELFFile(dso_path)
+            elffile = elffile_mod.ELFFile(dso_path)
         for bb_offset in offset_list:
             bb = get_basic_block(elffile, bb_offset)
             offset_inside_bb = 0
@@ -162,7 +201,7 @@ libc.so.6 312       0                   1           1           1             6
 
 
 def get_basic_block(module, offset):
-    assert isinstance(module, elffile.ELFFile)
+    assert isinstance(module, elffile_mod.ELFFile)
    # assert isinstance(offset, int)
     fd = module._fd
 
@@ -204,7 +243,14 @@ def get_basic_blocks(module, offset_list):
     return ret
 
 if __name__ == "__main__":
-    e = elffile.ELFFile("/home/paszoste/cp/tests/files/test_elf")
-    bb = get_basic_block(e, 0x81f)
-    for inst in bb:
-        print inst.get_mnemonic_intel(), inst.get_length(), inst.get_operand_width(), inst.get_number_of_operands(), bytes_to_string(inst.get_bytes())
+    # e = elffile_mod.ELFFile("/home/paszoste/cp/tests/files/test_elf")
+    # bb = get_basic_block(e, 0x81f)
+    # for inst in bb:
+    #     print inst.get_mnemonic_intel(), inst.get_length(), inst.get_operand_width(), inst.get_number_of_operands(), bytes_to_string(inst.get_bytes())
+    from pandas import DataFrame
+    bb_df = DataFrame.from_csv("../../csv/libCore.so.stat.csv")
+    bbs = list(bb_df.index)
+    disassembly = get_disassembly_for_basic_blocks({"../../dsos/libCore.so":bbs})
+    print(disassembly)
+    disassembly.to_csv('libCore.so.disassembly.csv')
+
