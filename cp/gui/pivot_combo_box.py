@@ -16,6 +16,10 @@ class PivotComboBox(QComboBox, IStateful):
         self.previous_index = None
 
         self.insertItem(0, "", None)
+        self.activated.connect(self.updateTooltip)
+
+    def updateTooltip(self):
+        self.setToolTip(self.currentText())
 
     def clear(self):
         super(PivotComboBox, self).clear()
