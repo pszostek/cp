@@ -378,6 +378,16 @@
           </item>
          </layout>
         </widget>
+        <widget class="QWidget" name="tab_3">
+         <attribute name="title">
+          <string>Data transformations</string>
+         </attribute>
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_4"/>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
      </layout>
