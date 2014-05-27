@@ -32,13 +32,13 @@ def _merge(data_frames_dict, chosen_dfs_dict):
     for df_path in chosen_df_paths[1:]:
         df = data_frames_dict[df_path]
         df = df.reset_index()
-        common_column = _find_common_column(merged, df)
+        common_columns = _find_common_columns(merged, df)
 
         merged = pandas.merge(merged,
                               df,
                               how="outer",
-                              left_on=common_column,
-                              right_on=common_column,
+                              left_on=common_columns,
+                              right_on=common_columns,
                               copy=False)
     return merged
 
@@ -49,19 +49,19 @@ def _drop(data_frame, chosen_columns):
             to_be_dropped.add(column)
     return data_frame.drop(list(to_be_dropped), axis=1) 
 
-def _find_common_column(df1, df2):
+def _find_common_columns(df1, df2):
     df1_set = set(df1.columns)
     df2_set = set(df2.columns)
     intersec = df1_set.intersection(df2_set)
     if len(intersec) == 0:
         raise Exception(
             "No idea how to merge these tables! (no common column)")
-    elif len(intersec) > 1:
-        raise Exception("More than two columns match!")
-    return list(intersec)[0]
+    # elif len(intersec) > 1:
+    #     raise Exception("More than two columns match!")
+    return list(intersec)
 
 
-def _filter(data_frames_dict, filters):
+def _apply_filters(data_frames_dict, filters):
     def _string_from_filter(filter_):
             query_string = "%s %s %s" % (filter_.column,
                                          filter_.condition,
@@ -83,6 +83,10 @@ def _filter(data_frames_dict, filters):
             ret_dict[data_frame_path] = data_frame
     return ret_dict
 
+def column_to_hex(data_frame, column_name):
+    if column_name in data_frame.columns:
+        data_frame[column_name] = data_frame[column_name].apply(lambda number: '0x%X' % number)
+
 def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters, aggfunc=None):
     """ Returns a pivoted data frame
 
@@ -98,7 +102,7 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters,
     column_names = [second_elem(row_tup) for row_tup in column_tuples]
     # all_columns = row_names + column_names
 
-    data_frames_dict = _filter(data_frames_dict, filters)
+    data_frames_dict = _apply_filters(data_frames_dict, filters)
 
     df_column_dict = defaultdict(set)
     for csv_path, column_name in column_tuples:
@@ -116,7 +120,7 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters,
         data_frame = data_frames_dict[df_column_dict.keys()[0]].reset_index()
 
     chosen_columns = reduce(lambda x, y: x.union(y), df_column_dict.values())
-    data_frame.to_csv("./merged.csv")
+   # data_frame.to_csv("./merged.csv")
 
     try:
         data_frame = _drop(data_frame=data_frame,
@@ -124,6 +128,8 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters,
     except Exception, e:
         raise DropException(str(e))
 
+    column_to_hex(data_frame, 'bb')
+    column_to_hex(data_frame, 'bb.1')
 
     from pandas.tools.pivot import pivot_table
     data_frame = pivot_table(data_frame,
