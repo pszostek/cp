@@ -17,9 +17,8 @@ from collections import deque
 # except ImportError:
 #     from HierarchicalHeaderView import HierarchicalHeaderView
 
-from HierarchicalHeaderView import HierarchicalHeaderView
-#from hierarchical_header import HierarchicalHeaderView
-
+#from HierarchicalHeaderView import HierarchicalHeaderView
+from hierarchical_header import HierarchicalHeaderView
 
 class DataFrameModel(QAbstractTableModel):
 
@@ -58,8 +57,8 @@ class DataFrameModel(QAbstractTableModel):
         self.fillHeaderModel(self._verticalHeaderModel, dataFrame.index)
         self._verticalHeaderModel.modelReset.emit()
         self.modelReset.emit()
-        self.headerDataChanged.emit(Qt.Vertical, 0,1)
-        self.headerDataChanged.emit(Qt.Horizontal, 0,1)
+        self.headerDataChanged.emit(Qt.Vertical, 0, 1)
+        self.headerDataChanged.emit(Qt.Horizontal, 0, 1)
 
     # def signalUpdate(self):
     #     ''' tell viewers to update their data (this is full update, not
@@ -140,29 +139,37 @@ class DataFrameModel(QAbstractTableModel):
         self.sortSection = column
         self.df.sort([column_tuple], inplace=True, ascending=ascending)
         topLeft = self.createIndex(0,0)
-        bottomRight = self.createIndex(df.shape[0]-1, df.shape[1]-1)
+        bottomRight = self.createIndex(self.df.shape[0]-1, self.df.shape[1]-1)
         self._verticalHeaderModel = QStandardItemModel()
-        self.fillHeaderModel(self._verticalHeaderModel, df.index)
-        self.headerDataChanged.emit(Qt.Orientation.Vertical, 0, df.shape[0]-1)
-        self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, df.shape[1]-1)
-        self.wid = DataFrameView(self.df)
-        self.wid.resize(250, 150)
-        self.wid.setWindowTitle('NewWindow')
-        self.wid.show()
+        self.fillHeaderModel(self._verticalHeaderModel, self.df.index)
+        self.headerDataChanged.emit(Qt.Orientation.Vertical, 0, 1000)#self.df.shape[0]-1)
+        self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, 1000)#self.df.shape[1]-1)
+        # self.wid = DataFrameView(self.df)
+        # self.wid.resize(250, 150)
+        # self.wid.setWindowTitle('NewWindow')
+        # self.wid.show()
 
         self.layoutChanged.emit()
         self.dataChanged.emit(topLeft, bottomRight)
 
     def headerData(self, section, orientation, role):
-        #print("headerData", orientation, section, role)
-        #return "1"
-        pass
+        #just to display in a normal QTableView
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Orientation.Horizontal:
+                return self.df.columns[section]
+            elif orientation == Qt.Orientation.Vertical:
+                return self.df.index[section] 
 
     def getMinimum(self):
         return self.df.min()
 
     def getMaximum(self):
         return self.df.max()
+
+    def setHeaderData(self, section, orientation, value, role):
+        print("setHeaderData")
+        super(DataFrameModel, self).setHeaderData(section, orientation, value, role)
+
 
 class ColorDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
