@@ -22,6 +22,7 @@ C_COLUMN, C_ROW = 0, 1
 class MainWindow(QMainWindow, IStateful):
     dataFrameAdded = Signal(list)
     dataFrameRemoved = Signal(str)
+    dataChanged = Signal()
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -39,6 +40,19 @@ class MainWindow(QMainWindow, IStateful):
 
         self._initMenuActions()
         self._initButtons()
+
+        self.dataFrameView.setSortingEnabled(True)
+        self.dataChanged.connect(self.updateSums)
+        self.rowSumCheckBox.stateChanged.connect(self.onRowSumCheckBoxChanged)
+        self.columnSumCheckBox.stateChanged.connect(self.onColumnSumCheckBoxChanged)
+        self.rowSumWidget.hide()
+        self.columnSumWidget.verticalHeader().hide()
+        self.columnSumWidget.horizontalHeader().hide()
+        self.rowSumWidget.verticalHeader().hide()
+        self.rowSumWidget.horizontalHeader().hide()
+        self.dataFrameView.verticalScrollBar().valueChanged.connect(self.rowSumWidget.verticalScrollBar().setValue)
+        self.dataFrameView.horizontalScrollBar().valueChanged.connect(self.columnSumWidget.horizontalScrollBar().setValue)
+        self.columnSumWidget.hide()
 
         self.dataFileContent.horizontalHeader().setVisible(True)
         self.dataFileContent.setSortingEnabled(False)
@@ -59,10 +73,78 @@ class MainWindow(QMainWindow, IStateful):
         self.dataDisplayed = False
         self.filtersDisplayed = False
 
-
         self.filterWidget.setDataFrameDict(self.data_frames)
 
     ### SLOTS ###
+
+    def onRowSumCheckBoxChanged(self, state):
+        if state == Qt.Checked:
+            self.rowSumWidget.show()
+        else:
+            self.rowSumWidget.hide()
+
+    def onColumnSumCheckBoxChanged(self, state):
+        if state == Qt.Checked:
+            self.columnSumWidget.show()
+        else:
+            self.columnSumWidget.hide()
+
+    def updateSums(self):
+        print("updateSUms")
+        df = self.dataFrameView.getDataFrame()
+        rows = df.shape[0]
+        cols = df.shape[1]
+        if hasattr(df.columns, "levels"):
+            columnLevels = len(df.columns.levels)
+        else:
+            columnLevels = 1
+
+        if hasattr(df.index, "levels"):
+            rowLevels = len(df.index.levels)
+        else:
+            rowLevels = 1
+        self.columnSumWidget.setColumnCount(cols+1)
+        self.columnSumWidget.setRowCount(columnLevels)
+
+        # hh = self.dataFrameView.horizontalHeader()
+        # print("len", hh.length())
+        # print("section", hh.sectionSizeFromContents(0))
+        # print("section", hh.sectionSizeFromContents(1))
+
+        # vh = self.dataFrameView.verticalHeader()
+        # print("len", vh.length())
+        # print("section", vh.sectionSizeFromContents(0))
+        # print("section", vh.sectionSizeFromContents(1))
+        columnSums = df.sum(axis=1)
+        print(columnSums)
+        rowSums = df.sum(axis=0)
+        print(rowSums)
+        if columnLevels == 1:
+            for idx, column in enumerate(df.columns):
+                item = QTableWidgetItem(str(columnSums[column]))
+                self.columnSumWidget.setItem(0, idx+1, item)
+        else:
+            pass
+
+        if rowLevels == 1:
+            for idx, index in enumerate(df.index):
+                item = QTableWidgetItem(str(rowSums[index]))
+                self.columnSumWidget.setItem(0, idx+1, item)
+        else:
+            pass
+
+        for level_labels in labels:
+            prev = None
+            count_span = 0
+            for idx, label in enumerate(level_labels):
+                if label == prev:
+                    count_span += 1
+                else:
+                    count_span = 0
+
+
+        self.rowSumWidget.setColumnCount(rowLevels)
+        self.rowSumWidget.setRowCount(rows+1)
 
     def exportView(self):
         path = QFileDialog.getSaveFileName(filter="CSV files (*.csv)", selectedFilter="CSV files (*.csv)")
@@ -216,6 +298,8 @@ class MainWindow(QMainWindow, IStateful):
           #  self.dataFrameView.setItemDelegate(ColorDelegate())
             self.dataFrameView.setDataFrame(pivoted_data_frame)
             self.statusBar().showMessage("Done.")
+            self.dataChanged.emit()
+
         except PivotEngineException, e:
             QMessageBox.warning(self,
                                 "Error",
@@ -319,6 +403,7 @@ class MainWindow(QMainWindow, IStateful):
 
         transposed = self.dataFrameView.getDataFrame().T
         self.dataFrameView.setDataFrame(transposed)
+        self.dataChanged.emit()
 
     def _initButtons(self):
         self.openFileButton.setIcon(QIcon.fromTheme("document-open"))
@@ -462,29 +547,30 @@ class MainWindow(QMainWindow, IStateful):
         self.dataFilesList.addItem(path)
         return new_df
 
-    def _fillTableFromDataFrame(self, tableWidget, dataFrame):
+    def _fillTableFromDataFrame(self, tableView, dataFrame):
         assert isinstance(
-            tableWidget, QTableView), "Expected QTableView, got %s" % type(tableWidget)
+            tableView, QTableView), "Expected QTableView, got %s" % type(tableView)
         assert isinstance(
             dataFrame, DataFrame), "Expected DataFrame, got %s" % type(dataFrame)
 
         start_time = time.time()
-        tableWidget.setModel(None)
+        tableView.setModel(None)
 
         sourceModel = DataFrameModel(dataFrame)
+        print(dataFrame)
         proxyModel = QSortFilterProxyModel(self)
         proxyModel.setSourceModel(sourceModel)
 
-        for i in xrange(len(dataFrame.columns.tolist())):
-            label = str(dataFrame.columns.tolist()[i])
-            proxyModel.setHeaderData(i, Qt.Orientation.Horizontal, label)
-        tableWidget.setModel(proxyModel)
-
+        # for i in xrange(len(dataFrame.columns.tolist())):
+        #     label = str(dataFrame.columns.tolist()[i])
+        #     proxyModel.setHeaderData(i, Qt.Orientation.Horizontal, label)
+        # tableView.setModel(sourceModel)
+        tableView.setModel(proxyModel)
         end_time = time.time()
         self.statusBar().showMessage(
             "Inserted data in %g" % (end_time - start_time))
 
-        tableWidget.show()
+        tableView.show()
 
 
 def main(argv=None):

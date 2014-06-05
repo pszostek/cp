@@ -3,7 +3,6 @@
 
 from __future__ import print_function
 from collections import namedtuple
-from demangle import demangle
 from elftools.common.py3compat import bytes2str
 from elftools.elf.elffile import ELFFile as ELFFile_
 from elftools.elf.sections import Section
@@ -171,6 +170,7 @@ class ELFFile(ELFFile_):
         return symtab
 
     def _iter_func(self, symbols_iter):
+        from ..demangle import demangle
         for sym in symbols_iter:
             if sym.entry['st_info']['type'] == 'STT_FUNC':
                 demangled_name = demangle.cplus_demangle(sym.name, 1)
