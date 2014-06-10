@@ -31,8 +31,26 @@ def getClassName(row):
 
 	# Get rid of function name
 	if "::" in name:
-		name = name[:name.rindex("::")]
-		return name
+		index = len(name)-1
+		depth = 0
+		while not (name[index] == ":" and depth == 0):
+			chopped = name[:index]
+
+			if chopped.endswith("operator>>") or chopped.endswith("operator<<"):
+				index -= 10
+				continue
+
+			if chopped.endswith("operator>") or chopped.endswith("operator<"):
+				index -= 9
+				continue
+
+			if name[index] == ">":
+				depth += 1
+			if name[index] == "<":
+				depth -= 1
+			index -= 1
+		index -= 1
+		return name[:index]
 	
 	return None
 
@@ -62,7 +80,7 @@ def main():
 	for className in classes.iterrows():
 		name = className[1].values[0]
 		print("Class: {0}".format(name))
-		print(filterByName(funcs, name))
+		print(filterByName(funcs, name + "::"))
 		print("\n")
 
 if __name__ == '__main__':
