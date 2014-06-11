@@ -50,7 +50,10 @@ def collect():
                 continue     
 
         line = line.split("\t")
-        ret.append([line[0], line[1], line[2]]) 
-    return pandas.DataFrame(ret, columns=["start", "end", "line"])
+        tmp = line[2].split(":")
+        path = tmp[0]
+        num = tmp[1] 
+        ret.append([line[0], line[1], path, num]) 
+    return pandas.DataFrame(ret, columns=["start", "end", "path", "line"])
 %}
 
