@@ -50,6 +50,8 @@ def extractClassname(row):
 		index -= 1
 		return name[:index]
 
+    return None
+
 # Receives the output from getFunctions and returns
 # just the names of the classes (or toplevel namespaces
 # in which there are functions not belonging to a class)	
