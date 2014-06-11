@@ -9,3 +9,4 @@ extern "C" {
 
 void initialize_line_numbers(char* input_file_name);
 int find_line_number(uint64_t addr, std::string& file,  xed_uint32_t& line);
+std::string printall();

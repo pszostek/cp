@@ -30,3 +30,27 @@
     #include "fast_addr2line.h"
 %}
 %include "fast_addr2line.h"
+
+%pythoncode %{
+import pandas
+def collect():
+    data = printall()
+    data = data.strip().split("\n")
+    ret = []
+    # No dwarf?
+    dwarf = True
+    if data[0].startswith("#####"):
+       dwarf = False 
+    for line in data:
+        # SKip data from stt symbols if we have dwarf
+        if line.startswith("#####"):
+            if dwarf:
+                break
+            else:
+                continue     
+
+        line = line.split("\t")
+        ret.append([line[0], line[1], line[2]]) 
+    return pandas.DataFrame(ret, columns=["start", "end", "line"])
+%}
+
