@@ -778,10 +778,8 @@ void initialize_line_numbers(char* input_file_name);
 int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line);
 int correct_find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line);
 
-
 int main(int argc, char** argv) {
     initialize_line_numbers(argv[1]);
-
     xed_uint64_t addr;
     string filename;
     xed_uint32_t line;
