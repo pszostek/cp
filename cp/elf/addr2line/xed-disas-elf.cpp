@@ -164,6 +164,22 @@ int find_line_number(xed_uint64_t addr, string& file,  xed_uint32_t& line) {
     return 1;
 }
 
+void printall() {
+    map<xed_uint64_t,line_number_entry_t*>::iterator iter;
+    for(iter = correct_line_number_table.begin(); iter != correct_line_number_table.end(); iter++) {
+        string file;
+        if(iter->second->file)
+            file = global_file_name_table[iter->second->file];
+        else
+            file = "Unknown";
+        cout << iter->first << "\t" << iter->second->ending_address << "\t" << file << ":" << iter->second->line << endl;
+    }
+    cout << "#####" << endl;
+    map<xed_uint64_t,entry_from_stt_file_symbol>::iterator iter2;
+    for(iter2 = table_from_stt_file_symbols.begin(); iter2 != table_from_stt_file_symbols.end(); iter2++) {
+       cout << iter2->first << "\t" << iter2->second.ending_address << "\t" << *(iter2->second.file) << ":-1" << endl;  
+    }
+}
 
 extern "C" void find_line_number_info(xed_uint64_t addr)
 {
