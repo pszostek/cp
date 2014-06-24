@@ -372,6 +372,7 @@ HierarchicalHeaderView::HierarchicalHeaderView(Qt::Orientation orientation, QWid
     :QHeaderView(orientation, parent), _pd(new private_data())
 {
     connect(this, SIGNAL(sectionResized(int, int, int)), this, SLOT(on_sectionResized(int)));
+    setSortIndicatorShown(true);
 }
 
 HierarchicalHeaderView::~HierarchicalHeaderView()
@@ -390,7 +391,14 @@ QStyleOptionHeader HierarchicalHeaderView::styleOptionForCell(int logicalInd) co
     opt.section = logicalInd;
 
     int visual = visualIndex(logicalInd);
-
+    if (orientation() == Qt::Horizontal) {
+        if (logicalInd == sortIndicatorSection()) {
+            if (sortIndicatorOrder() == Qt::DescendingOrder)
+                opt.sortIndicator = QStyleOptionHeader::SortUp;
+            else if(sortIndicatorOrder() == Qt::AscendingOrder)
+                opt.sortIndicator = QStyleOptionHeader::SortDown;
+        }
+    }
     if (count() == 1)
         opt.position = QStyleOptionHeader::OnlyOneSection;
     else

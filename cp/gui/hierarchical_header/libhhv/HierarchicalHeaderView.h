@@ -37,9 +37,16 @@ Table model's function "data" should return pointer to QAbstractItemModel, repre
 for horizontal header it uses HorizontalHeaderDataRole, for vertical - VerticalHeaderDataRole.
 If header's model function "data" with Qt::UserRole return valid QVariant, text in header cell is rotated.
 */
+
+
+
 class HierarchicalHeaderView : public QHeaderView
 {
         Q_OBJECT
+
+          enum HeaderDataModelRoles
+              {HorizontalHeaderDataRole=Qt::UserRole,
+               VerticalHeaderDataRole=Qt::UserRole+1};
 
         class private_data;
         private_data* _pd;
@@ -51,9 +58,7 @@ class HierarchicalHeaderView : public QHeaderView
         QSize sectionSizeFromContents(int logicalIndex) const;
     public:
 
-        enum HeaderDataModelRoles
-            {HorizontalHeaderDataRole=Qt::UserRole,
-             VerticalHeaderDataRole=Qt::UserRole+1};
+
 
         HierarchicalHeaderView(Qt::Orientation orientation, QWidget* parent = 0);
         ~HierarchicalHeaderView();

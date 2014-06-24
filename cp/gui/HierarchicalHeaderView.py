@@ -5,6 +5,9 @@ import PySide
 from PySide import QtCore, QtGui
 
 
+HorizontalHeaderDataRole = QtCore.Qt.UserRole
+VerticalHeaderDataRole = QtCore.Qt.UserRole + 1
+
 class private_data:
 
     def __init__(self):
@@ -13,9 +16,7 @@ class private_data:
     def initFromNewModel(self, orientation, model):
         self.headerModel = model.data(
             QtCore.QModelIndex(),
-            (HierarchicalHeaderView.HorizontalHeaderDataRole
-             if orientation == QtCore.Qt.Horizontal else HierarchicalHeaderView.
-             VerticalHeaderDataRole))
+            (HorizontalHeaderDataRole if orientation == QtCore.Qt.Horizontal else VerticalHeaderDataRole))
 
     def findRootIndex(self, index):
         while index.parent().isValid():
@@ -253,8 +254,6 @@ class private_data:
         painter.setBrushOrigin(oldBO)
 
 class HierarchicalHeaderView(QtGui.QHeaderView):
-    HorizontalHeaderDataRole = QtCore.Qt.UserRole
-    VerticalHeaderDataRole = QtCore.Qt.UserRole + 1
 
     def __init__(self, orientation, parent=None):
         QtGui.QHeaderView.__init__(self, orientation, parent)
@@ -268,15 +267,13 @@ class HierarchicalHeaderView(QtGui.QHeaderView):
         self.setClickable(True)
         self.setSortIndicatorShown(True)
 
-    # def headerDataChanged(self, orientation, logicalFirst, logicalLast):
-    #     self.repaint()
+    def headerDataChanged(self, orientation, logicalFirst, logicalLast):
+        pass
 
     def on_sectionClicked(self, logicalIndex):
-        #print("on_sectionClicked")
         pass
 
     def styleOptionForCell(self, logicalInd):
-        import random
         opt = QtGui.QStyleOptionHeader()
         self.initStyleOption(opt)
         if (self.window().isActiveWindow()):
@@ -292,9 +289,9 @@ class HierarchicalHeaderView(QtGui.QHeaderView):
         if self.orientation() == PySide.QtCore.Qt.Orientation.Horizontal:
             if logicalInd == self.sortIndicatorSection():
                 if self.sortIndicatorOrder() == QtCore.Qt.SortOrder.DescendingOrder:
-                    opt.sortIndicator = QtGui.QStyleOptionHeader.SortDown
-                elif self.sortIndicatorOrder() == QtCore.Qt.SortOrder.AscendingOrder:
                     opt.sortIndicator = QtGui.QStyleOptionHeader.SortUp
+                elif self.sortIndicatorOrder() == QtCore.Qt.SortOrder.AscendingOrder:
+                    opt.sortIndicator = QtGui.QStyleOptionHeader.SortDown
             # print cp'sOFC', logicalInd, self.sortIndicatorSection(), self.sortIndicatorOrder(), self.count()
         if self.count() == 1:
             opt.position = QtGui.QStyleOptionHeader.OnlyOneSection

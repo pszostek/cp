@@ -1,5 +1,5 @@
 '''
-Easy integration of DataFrame into pyqt framework
+Hard integration of DataFrame into pyqt framework
 
 '''
 from __future__ import print_function
@@ -17,13 +17,18 @@ from collections import deque
 # except ImportError:
 #     from HierarchicalHeaderView import HierarchicalHeaderView
 
-#from HierarchicalHeaderView import HierarchicalHeaderView
-from hierarchical_header import HierarchicalHeaderView
+import HierarchicalHeaderView
+from HierarchicalHeaderView import (HierarchicalHeaderView,
+                                   HorizontalHeaderDataRole,
+                                   VerticalHeaderDataRole)
+# from hierarchical_header import HierarchicalHeaderView
+# HorizontalHeaderDataRole = Qt.UserRole
+# VerticalHeaderDataRole = Qt.UserRole + 1
 
 class DataFrameModel(QAbstractTableModel):
 
     ''' data model for a DataFrame class '''
-
+    sortingDone = Signal(int, int)
     def __init__(self, dataFrame=None, parent=None):
         super(DataFrameModel, self).__init__(parent)
         self.df = dataFrame
@@ -60,10 +65,12 @@ class DataFrameModel(QAbstractTableModel):
         self.headerDataChanged.emit(Qt.Vertical, 0, 1)
         self.headerDataChanged.emit(Qt.Horizontal, 0, 1)
 
-    # def signalUpdate(self):
-    #     ''' tell viewers to update their data (this is full update, not
-    #     efficient)'''
-    #     self.layoutChanged.emit()
+
+    def getHorizontalHeaderModel(self):
+        return self._horizontalHeaderModel
+
+    def getVerticalHeaderModel(self):
+        return self._verticalHeaderModel
 
     def fillHeaderModel(self, headerModel, index):
         from collections import defaultdict
@@ -114,18 +121,27 @@ class DataFrameModel(QAbstractTableModel):
     def data(self, index, role):
         if role == Qt.DisplayRole and index.isValid():
             return str(self.df.iloc[index.row(), index.column()])
-        elif role == Qt.UserRole:
+        elif role == HorizontalHeaderDataRole:
             return self._horizontalHeaderModel
-        elif role == Qt.UserRole + 1:
+        elif role == VerticalHeaderDataRole:
             return self._verticalHeaderModel
 
-    def rowCount(self, index=QModelIndex()):
+    def resetSortOrder(self):
+        self.df.sort_index(0, inplace=True)
+        self.headerDataChanged.emit(Qt.Vertical, 0, self.rowCount())
+        self.headerDataChanged.emit(Qt.Horizontal, 0, self.columnCount())
+        self.dataChanged.emit(self.createIndex(0,0),
+                              self.createIndex(self.rowCount(),
+                              self.columnCount()))
+
+    def rowCount(self, index=None):
         return self.df.shape[0]
 
-    def columnCount(self, index=QModelIndex()):
+    def columnCount(self, index=None):
         return self.df.shape[1]
 
     def sort(self, column, order):
+        print("sort")
         if order == self.sortOrder and column == self.sortSection:
             return
         column_list = self.df.columns.tolist()
@@ -141,14 +157,14 @@ class DataFrameModel(QAbstractTableModel):
         topLeft = self.createIndex(0,0)
         bottomRight = self.createIndex(self.df.shape[0]-1, self.df.shape[1]-1)
         self._verticalHeaderModel = QStandardItemModel()
+        self._horizontalHeaderModel = QStandardItemModel()
         self.fillHeaderModel(self._verticalHeaderModel, self.df.index)
         self.headerDataChanged.emit(Qt.Orientation.Vertical, 0, 1000)#self.df.shape[0]-1)
-        self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, 1000)#self.df.shape[1]-1)
         # self.wid = DataFrameView(self.df)
         # self.wid.resize(250, 150)
         # self.wid.setWindowTitle('NewWindow')
         # self.wid.show()
-
+        self.sortingDone.emit(column, order)
         self.layoutChanged.emit()
         self.dataChanged.emit(topLeft, bottomRight)
 
@@ -216,7 +232,6 @@ class ColorDelegate(QStyledItemDelegate):
 class DataFrameView(QTableView):
 
     ''' a simple widget for using DataFrames in a gui '''
-
     def __init__(self, dataFrame=None, parent=None):
         super(DataFrameView, self).__init__(parent)
 
@@ -235,9 +250,19 @@ class DataFrameView(QTableView):
         else:
             self.setDataFrame(dataFrame=dataFrame)
 
+    def onModelChanged(self):
+        self.verticalHeader().setModel(self.model())
+
+    def hideSortIndicator(self):
+        self.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.DescendingOrder)
+
     def setModel(self, model):
+        print("DataFrameView.setModel")
         assert isinstance(model, DataFrameModel) or (model is None)
         super(DataFrameView, self).setModel(model)
+        model.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
+        model.headerDataChanged.connect(self.horizontalHeader().headerDataChanged)
+        model.headerDataChanged.connect(self.onModelChanged)
 
     def setDataFrame(self, dataFrame):
         assert isinstance(dataFrame, DataFrame) or (dataFrame is None)
@@ -247,11 +272,12 @@ class DataFrameView(QTableView):
             # self.dataModel.setDataFrame(dataFrame)
             self.dataModel = DataFrameModel()
             self.dataModel.setDataFrame(dataFrame)
-            print(dataFrame)
-            self.dataModel.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
+          #  print(dataFrame)
+            #self.dataModel.headerDataChanged.connect(self.verticalHeader().headerDataChanged)
             self.update()
+            self.verticalHeader().update()
 
-        super(DataFrameView, self).setModel(self.dataModel)
+        self.setModel(self.dataModel)
 
     def getDataFrame(self):
         return self.dataModel.df
@@ -296,7 +322,7 @@ if __name__ == '__main__':
     df = DataFrame.from_csv("../view1.csv", index_col=[0,1])
     widget = DataFrameView()
     widget.setDataFrame(df)
-    widget.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.DescendingOrder)
     widget.setSortingEnabled(True)
+    widget.hideSortIndicator()
     widget.show()
     app.exec_()

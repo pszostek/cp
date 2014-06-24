@@ -6,7 +6,6 @@ from collections import defaultdict
 from PySide.QtGui import *
 from PySide.QtCore import *
 
-
 class PivotEngineException(Exception):
     pass
 
@@ -67,7 +66,7 @@ def _apply_filters(data_frames_dict, filters):
                                          filter_.condition,
                                          filter_.value)
             return query_string
-    print("filters", filters)
+  #  print("filters", filters)
     ret_dict = {}
     filter_dict = defaultdict(list)
     for filter_ in filters:
@@ -138,5 +137,4 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters,
                           cols=column_names,
                           fill_value=0,
                           aggfunc=aggfunc)
-    print(data_frame)
     return data_frame
