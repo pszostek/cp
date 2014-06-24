@@ -10,7 +10,7 @@ import pivot
 from istateful import IStateful
 from pandas import DataFrame
 from functools import partial
-from gui.qtpandas import DataFrameModel, DataFrameView#, ColorDelegate
+from gui.qtpandas import DataFrameModel, DataFrameView  # , ColorDelegate
 from gui.uiloader import loadUi
 from collections import deque
 from gui.pivot_combo_box import PivotComboBox
@@ -23,6 +23,7 @@ class MainWindow(QMainWindow, IStateful):
     dataFrameAdded = Signal(list)
     dataFrameRemoved = Signal(str)
     dataChanged = Signal()
+    firstDataDisplayed = Signal()
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -41,27 +42,7 @@ class MainWindow(QMainWindow, IStateful):
         self._initMenuActions()
         self._initButtons()
 
-        self.dataFrameView.setSortingEnabled(True)
-        self.dataChanged.connect(self.updateSums)
-        self.rowSumCheckBox.stateChanged.connect(self.onRowSumCheckBoxChanged)
-        self.columnSumCheckBox.stateChanged.connect(self.onColumnSumCheckBoxChanged)
-        self.rowSumWidget.hide()
-        self.columnSumWidget.verticalHeader().hide()
-        self.columnSumWidget.horizontalHeader().hide()
-        self.rowSumWidget.verticalHeader().hide()
-        self.rowSumWidget.horizontalHeader().hide()
-        self.dataFrameView.verticalScrollBar().valueChanged.connect(self.rowSumWidget.verticalScrollBar().setValue)
-        self.dataFrameView.horizontalScrollBar().valueChanged.connect(self.columnSumWidget.horizontalScrollBar().setValue)
-        self.columnSumWidget.hide()
-
-        self.dataFileContent.horizontalHeader().setVisible(True)
-        self.dataFileContent.setSortingEnabled(False)
-        self.dataFileContent.setShowGrid(True)
-        self.dataFileContent.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.dataFrameAdded.connect(self._onDataFrameAdded)
-        self.dataFrameRemoved.connect(self._onDataFrameRemoved)
-        # self.dataFrameAdded.connect(self.addNewItemsToComboBoxes)
-        # self.dataFrameAdded.connect(self.addNewItemsToFilters)
+        self._initDataFrameView()
 
 
         self.filterWidget.setEnabled(False)
@@ -77,6 +58,19 @@ class MainWindow(QMainWindow, IStateful):
 
     ### SLOTS ###
 
+    def onVerticalScrollBarRangeChanged(self, min_, max_):
+        self.verticalScrollBar.setRange(min_, max_)
+
+    def onHorizontalScrollBarRangeChanged(self, min_, max_):
+        self.horizontalScrollBar.setRange(min_, max_)
+
+    def onFirstDataDisplayed(self):
+        self.dataDisplayed = True
+        self.dataFrameView.model().sortingDone.connect(
+            self.onHeaderGeometryChanged)
+        self.verticalScrollBar.setEnabled(True)
+        self.horizontalScrollBar.setEnabled(True)
+
     def onRowSumCheckBoxChanged(self, state):
         if state == Qt.Checked:
             self.rowSumWidget.show()
@@ -89,9 +83,27 @@ class MainWindow(QMainWindow, IStateful):
         else:
             self.columnSumWidget.hide()
 
+    def onHeaderGeometryChanged(self, _, orientation):
+        print("headerGeometryChanged", orientation)
+        if orientation == Qt.Vertical:
+            verticalHeaderSize = self.dataFrameView.verticalHeader().size()
+            width = verticalHeaderSize.width()
+            self.columnSumWidget.verticalHeader().setFixedWidth(width)
+            self.columnSumWidget.verticalHeader().updateGeometries()
+
+        elif orientation == Qt.Horizontal:
+            horizontalHeaderSize = self.dataFrameView.horizontalHeader().size()
+            height = horizontalHeaderSize.height()
+            self.rowSumWidget.horizontalHeader().setFixedHeight(height)
+            self.rowSumWidget.horizontalHeader().updateGeometries()
+
     def updateSums(self):
         print("updateSUms")
         df = self.dataFrameView.getDataFrame()
+        verticalHeader = self.dataFrameView.verticalHeader()
+        size = verticalHeader.size()
+        print("size", size)
+
         rows = df.shape[0]
         cols = df.shape[1]
         if hasattr(df.columns, "levels"):
@@ -103,8 +115,12 @@ class MainWindow(QMainWindow, IStateful):
             rowLevels = len(df.index.levels)
         else:
             rowLevels = 1
-        self.columnSumWidget.setColumnCount(cols+1)
+        print("rowLevels", rowLevels)
+        self.columnSumWidget.setColumnCount(cols)
         self.columnSumWidget.setRowCount(columnLevels)
+
+        self.rowSumWidget.setRowCount(rows)
+        self.rowSumWidget.setColumnCount(rowLevels)
 
         # hh = self.dataFrameView.horizontalHeader()
         # print("len", hh.length())
@@ -115,46 +131,40 @@ class MainWindow(QMainWindow, IStateful):
         # print("len", vh.length())
         # print("section", vh.sectionSizeFromContents(0))
         # print("section", vh.sectionSizeFromContents(1))
-        columnSums = df.sum(axis=1)
-        print(columnSums)
-        rowSums = df.sum(axis=0)
-        print(rowSums)
+        columnSums = df.sum(axis=0)
+       # print(columnSums)
+        rowSums = df.sum(axis=1)
+      #  print(rowSums)
         if columnLevels == 1:
+            self.columnSumWidget.setVerticalHeaderItem(0, QTableWidgetItem(""))
             for idx, column in enumerate(df.columns):
                 item = QTableWidgetItem(str(columnSums[column]))
-                self.columnSumWidget.setItem(0, idx+1, item)
+                self.columnSumWidget.setItem(0, idx, item)
         else:
             pass
+        self.columnSumWidget.setMaximumHeight(self.dataFrameView.horizontalHeader().height())
+        #self._shrinkWidget(self.columnSumWidget)
 
         if rowLevels == 1:
+            self.rowSumWidget.setHorizontalHeaderItem(0, QTableWidgetItem(""))
             for idx, index in enumerate(df.index):
                 item = QTableWidgetItem(str(rowSums[index]))
-                self.columnSumWidget.setItem(0, idx+1, item)
+                self.rowSumWidget.setItem(idx, 0, item)
         else:
             pass
-
-        for level_labels in labels:
-            prev = None
-            count_span = 0
-            for idx, label in enumerate(level_labels):
-                if label == prev:
-                    count_span += 1
-                else:
-                    count_span = 0
-
-
-        self.rowSumWidget.setColumnCount(rowLevels)
-        self.rowSumWidget.setRowCount(rows+1)
+        self.rowSumWidget.setMaximumWidth(self.dataFrameView.verticalHeader().width())
+        #self._shrinkWidget(self.rowSumWidget)
 
     def exportView(self):
-        path = QFileDialog.getSaveFileName(filter="CSV files (*.csv)", selectedFilter="CSV files (*.csv)")
+        path = QFileDialog.getSaveFileName(
+            filter="CSV files (*.csv)",
+            selectedFilter="CSV files (*.csv)")
         try:
             path = path[0]
         except TypeError:
             return
         if path:
             self.dataFrameView.dataModel.df.to_csv(path)
-
 
     def onNewFilterAdded(self):
         if self.dataDisplayed:
@@ -219,7 +229,7 @@ class MainWindow(QMainWindow, IStateful):
     def getState(self):
         import StringIO
         state = deque()
-        for combo in self._getColumnCombos()+self._getRowCombos():
+        for combo in self._getColumnCombos() + self._getRowCombos():
             state.append(combo.getState())
         state.append(self.displayedValueComboBox.getState())
         state.append(self.data_frames.keys())
@@ -237,7 +247,8 @@ class MainWindow(QMainWindow, IStateful):
 
     def openProject(self):
         import dill as pickle
-        path = QFileDialog.getOpenFileName(filter="C.Profiler project (*.cprof)")
+        path = QFileDialog.getOpenFileName(
+            filter="C.Profiler project (*.cprof)")
         input_file = open(path[0], 'rb')
         state = pickle.load(input_file)
         input_file.close()
@@ -245,7 +256,8 @@ class MainWindow(QMainWindow, IStateful):
 
     def saveProjectAs(self):
         import dill as pickle
-        path = QFileDialog.getSaveFileName(filter="C.Profiler project (*.cprof)")
+        path = QFileDialog.getSaveFileName(
+            filter="C.Profiler project (*.cprof)")
         output_file = open(path[0], 'wb')
         state = self.getState()
         pickle.dump(state, output_file)
@@ -279,11 +291,11 @@ class MainWindow(QMainWindow, IStateful):
             aggfunc) = self._getComboChoices()
         if len(row_tuples) == 0 or len(column_tuples) == 0:
             QMessageBox.warning(self, "Error",
-                    "Please choose at least one dimension in both axes")
+                                "Please choose at least one dimension in both axes")
             return
         if displayed_value == (None, None):
             QMessageBox.warning(self, "Error",
-                    "Please choose a dimension to be displayed")
+                                "Please choose a dimension to be displayed")
             return
         self.statusBar().showMessage("Processing.")
         try:
@@ -294,30 +306,31 @@ class MainWindow(QMainWindow, IStateful):
                 displayed_value=displayed_value,
                 filters=filters,
                 aggfunc=aggfunc)
-            #print(pivoted_data_frame.columns)
+            # print(pivoted_data_frame.columns)
           #  self.dataFrameView.setItemDelegate(ColorDelegate())
             self.dataFrameView.setDataFrame(pivoted_data_frame)
+            self.dataFrameView.hideSortIndicator()
             self.statusBar().showMessage("Done.")
+            self.firstDataDisplayed.emit()
             self.dataChanged.emit()
 
-        except PivotEngineException, e:
+        except PivotEngineException as e:
             QMessageBox.warning(self,
                                 "Error",
                                 str(e))
 
-
     def propagateComboBoxChange(self, source, index):
         previous_index = source.previousIndex()
-        
+
         for combo in self._getOtherCombos(than=source):
             combo.enableItem(previous_index)
             if index != 0:
                 combo.disableItem(index)
                 if previous_index == 0:
-                    if combo.role == source.role and combo.level == source.level+1:
+                    if combo.role == source.role and combo.level == source.level + 1:
                         combo.setEnabled(True)
             if index == 0:
-                if combo.role == source.role and combo.level == source.level+1:
+                if combo.role == source.role and combo.level == source.level + 1:
                     combo.setEnabled(False)
 
     def clearComboChoices(self):
@@ -329,7 +342,6 @@ class MainWindow(QMainWindow, IStateful):
             else:
                 combo.setEnabled(False)
 
-
     def _onDataFrameAdded(self, data_frame):
         self._addNewItemsToComboBoxes(data_frame)
         self._addNewItemsToFilters(data_frame)
@@ -340,7 +352,6 @@ class MainWindow(QMainWindow, IStateful):
             self.aggFuncComboBox.setEnabled(True)
             self.displayedValueComboBox.setEnabled(True)
 
-
     def _onDataFrameRemoved(self, data_frame):
         pass
 
@@ -348,21 +359,14 @@ class MainWindow(QMainWindow, IStateful):
         path = data_frame.path
         table_name = os.path.basename(path)
         self.filterWidget.addDataFrame(data_frame=data_frame,
-                                         table_name=table_name,
-                                         table_columns=data_frame.columns)
+                                       table_name=table_name,
+                                       table_columns=data_frame.columns)
         self.filterWidget.setEnabled(True)
 
     def _addNewItemsToComboBoxes(self, data_frame):
         if len(self.data_frames) > 0:
             self.rowComboBox1.setEnabled(True)
             self.columnComboBox1.setEnabled(True)
-        # self.rowComboBox1.clear()
-        # self.rowComboBox2.clear()
-        # self.rowComboBox3.clear()
-        # self.columnComboBox1.clear()
-        # self.columnComboBox2.clear()
-        # self.columnComboBox3.clear()
-        # self.displayedValueComboBox.clear()
 
         for column_name in data_frame.columns:
             path = data_frame.path
@@ -379,19 +383,19 @@ class MainWindow(QMainWindow, IStateful):
 
     ### PRIVATE FUNCTIONS ###
 
+    def _shrinkWidget(self, widget):
+        pass
+
     def _onApplyComboBoxesPressed(self):
         self.dataDisplayed = True
-        (chosen_rows,
-            chosen_columns,
-            displayed_value,
-            aggfunc) = self._getComboChoices()
-        print(chosen_columns, chosen_rows)
         self.transposeViewButton.setEnabled(True)
         self.pivotData()
-    
+
     def _onTransposeViewPressed(self):
-        row_combos_states = [combo.getState() for combo in self._getRowCombos()]
-        column_combos_states = [combo.getState() for combo in self._getColumnCombos()]
+        row_combos_states = [combo.getState()
+                             for combo in self._getRowCombos()]
+        column_combos_states = [
+            combo.getState() for combo in self._getColumnCombos()]
 
         for column_combo, new_state in zip(self._getColumnCombos(), row_combos_states):
             column_combo.setState(new_state)
@@ -409,14 +413,16 @@ class MainWindow(QMainWindow, IStateful):
         self.openFileButton.setIcon(QIcon.fromTheme("document-open"))
         self.removeFileButton.setIcon(QIcon.fromTheme("edit-delete"))
 
-        self.applyComboBoxesButton.clicked.connect(self._onApplyComboBoxesPressed)
+        self.applyComboBoxesButton.clicked.connect(
+            self._onApplyComboBoxesPressed)
         self.applyComboBoxesButton.setEnabled(False)
         self.transposeViewButton.clicked.connect(self._onTransposeViewPressed)
         self.transposeViewButton.setEnabled(False)
 
         self.openFileButton.clicked.connect(self.addDataFile)
         self.removeFileButton.clicked.connect(self._onRemoveFileButtonClicked)
-        self.dataFilesList.itemDoubleClicked.connect(self._showDataFrameOutlook)
+        self.dataFilesList.itemDoubleClicked.connect(
+            self._showDataFrameOutlook)
         self.clearButton.clicked.connect(self.clearComboChoices)
         self.clearButton.setEnabled(False)
         self.filterWidgetButton.released.connect(self.togglefilterWidget)
@@ -471,6 +477,73 @@ class MainWindow(QMainWindow, IStateful):
         self.aggFuncComboBox.insertItem(0, "count", np.size)
         self.aggFuncComboBox.setEnabled(False)
 
+    def _initDataFrameView(self):
+        self.dataFrameView.setSortingEnabled(True)
+        # self.dataFrameView.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        # self.dataFrameView.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        self.firstDataDisplayed.connect(self.onFirstDataDisplayed)
+        self.firstDataDisplayed.connect(
+            partial(
+                self.onHeaderGeometryChanged,
+                0,
+                Qt.Vertical))
+        self.firstDataDisplayed.connect(
+            partial(
+                self.onHeaderGeometryChanged,
+                0,
+                Qt.Horizontal))
+        self.dataChanged.connect(self.updateSums)
+
+        self.dataFrameView.verticalHeader().geometriesChanged.connect(
+            partial(
+                self.onHeaderGeometryChanged,
+                0,
+                Qt.Vertical))
+        self.dataFrameView.horizontalHeader().geometriesChanged.connect(
+            partial(
+                self.onHeaderGeometryChanged,
+                0,
+                Qt.Horizontal))
+
+        self.rowSumCheckBox.stateChanged.connect(self.onRowSumCheckBoxChanged)
+        self.columnSumCheckBox.stateChanged.connect(
+            self.onColumnSumCheckBoxChanged)
+
+        self.rowSumWidget.hide()
+        self.columnSumWidget.hide()
+      #  self.columnSumWidget.verticalHeader().hide()
+        self.columnSumWidget.horizontalHeader().hide()
+        self.rowSumWidget.verticalHeader().hide()
+      #  self.rowSumWidget.horizontalHeader().hide()
+
+        self.verticalScrollBar.valueChanged.connect(
+            self.rowSumWidget.verticalScrollBar().setValue)
+        self.verticalScrollBar.valueChanged.connect(
+            self.dataFrameView.verticalScrollBar().setValue)
+
+        self.dataFrameView.verticalScrollBar().rangeChanged.connect(
+            self.onVerticalScrollBarRangeChanged)
+        self.dataFrameView.verticalScrollBar().valueChanged.connect(
+            self.verticalScrollBar.setValue)
+
+        self.horizontalScrollBar.valueChanged.connect(
+            self.columnSumWidget.horizontalScrollBar().setValue)
+        self.horizontalScrollBar.valueChanged.connect(
+            self.dataFrameView.horizontalScrollBar().setValue)
+
+        self.dataFrameView.horizontalScrollBar().rangeChanged.connect(
+            self.onHorizontalScrollBarRangeChanged)
+        self.dataFrameView.horizontalScrollBar().valueChanged.connect(
+            self.horizontalScrollBar.setValue)
+
+        self.dataFileContent.horizontalHeader().setVisible(True)
+        self.dataFileContent.setSortingEnabled(False)
+        self.dataFileContent.setShowGrid(True)
+        self.dataFileContent.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.dataFrameAdded.connect(self._onDataFrameAdded)
+        self.dataFrameRemoved.connect(self._onDataFrameRemoved)
+
     def _getComboChoices(self):
         column_combos = self._getColumnCombos()
         row_combos = self._getRowCombos()
@@ -506,14 +579,16 @@ class MainWindow(QMainWindow, IStateful):
                 self.displayedValueComboBox.currentIndex()))
         except TypeError:
             displayed_value = (None, None)
-        aggfunc = self.aggFuncComboBox.itemData(self.aggFuncComboBox.currentIndex())
+        aggfunc = self.aggFuncComboBox.itemData(
+            self.aggFuncComboBox.currentIndex())
         return chosen_rows, chosen_columns, displayed_value, aggfunc
 
     def _getOtherCombos(self, than):
         column_combos = set(self._getColumnCombos())
         row_combos = set(self._getRowCombos())
         displayed_value_combo = set([self.displayedValueComboBox])
-        return column_combos.union(row_combos).union(displayed_value_combo).difference(set([than]))
+        return column_combos.union(row_combos).union(
+            displayed_value_combo).difference(set([than]))
 
     def _getColumnCombos(self):
         return [self.columnComboBox1,
@@ -557,7 +632,7 @@ class MainWindow(QMainWindow, IStateful):
         tableView.setModel(None)
 
         sourceModel = DataFrameModel(dataFrame)
-        print(dataFrame)
+      #  print(dataFrame)
         proxyModel = QSortFilterProxyModel(self)
         proxyModel.setSourceModel(sourceModel)
 

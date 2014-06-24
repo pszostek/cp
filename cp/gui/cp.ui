@@ -312,9 +312,54 @@
                <widget class="DataFrameView" name="dataFrameView">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>1</horstretch>
+                  <horstretch>100</horstretch>
+                  <verstretch>100</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="verticalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QTableWidget" name="columnSumWidget">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
                   <verstretch>1</verstretch>
                  </sizepolicy>
+                </property>
+                <property name="verticalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+                <attribute name="verticalHeaderVisible">
+                 <bool>true</bool>
+                </attribute>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QScrollBar" name="horizontalScrollBar">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QScrollBar" name="verticalScrollBar">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
                 </property>
                </widget>
               </item>
@@ -332,22 +377,9 @@
                 <property name="horizontalScrollBarPolicy">
                  <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
-               </widget>
-              </item>
-              <item row="1" column="0">
-               <widget class="QTableWidget" name="columnSumWidget">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
+                <attribute name="verticalHeaderVisible">
+                 <bool>true</bool>
+                </attribute>
                </widget>
               </item>
              </layout>
