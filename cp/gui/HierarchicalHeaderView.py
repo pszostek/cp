@@ -254,6 +254,8 @@ class private_data:
         painter.setBrushOrigin(oldBO)
 
 class HierarchicalHeaderView(QtGui.QHeaderView):
+    HorizontalHeaderDataRole = QtCore.Qt.UserRole
+    VerticalHeaderDataRole = QtCore.Qt.UserRole + 1
 
     def __init__(self, orientation, parent=None):
         QtGui.QHeaderView.__init__(self, orientation, parent)
