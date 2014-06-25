@@ -97,15 +97,15 @@ def functionTag(df):
         functions.addChild(fn)
     functions.finalize()
     functions.show()
-    dynamicData = pandas.read_csv("/home/gbitzes/profiler/cp/cp/fakedata_shapes.csv")
-    print(dynamicData)
-    cumulative = makeCumulative(dynamicData)
-    print(cumulative)
-    cumulativeList = []
-    for row in cumulative.iterrows():
-        cumulativeList.append( (row[1]["addr"], row[0]))
+    #dynamicData = pandas.read_csv("cp/fakedata_shapes.csv")
+    #print(dynamicData)
+    #cumulative = makeCumulative(dynamicData)
+    #print(cumulative)
+    #cumulativeList = []
+    #for row in cumulative.iterrows():
+    #    cumulativeList.append( (row[1]["addr"], row[0]))
     
-    print(cumulativeList)
+    #print(cumulativeList)
     return functions
 
 # Receives a dataframe with (start, end, function name)
