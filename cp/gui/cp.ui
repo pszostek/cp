@@ -470,6 +470,20 @@
           </item>
          </layout>
         </widget>
+        <widget class="QWidget" name="tab_4">
+         <attribute name="title">
+          <string>Tags</string>
+         </attribute>
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
+          <item>
+           <widget class="QTreeView" name="tagView">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
      </layout>
@@ -481,7 +495,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1067</width>
+     <width>1115</width>
      <height>27</height>
     </rect>
    </property>
@@ -502,11 +516,6 @@
     <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
-   <widget class="QMenu" name="menuEdit">
-    <property name="title">
-     <string>Edit</string>
-    </property>
-   </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
      <string>View</string>
@@ -519,7 +528,6 @@
     </property>
    </widget>
    <addaction name="menuProject"/>
-   <addaction name="menuEdit"/>
    <addaction name="menuView"/>
    <addaction name="menuAbout"/>
   </widget>
@@ -532,6 +540,9 @@
   <action name="actionData_file">
    <property name="text">
     <string>Data file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="actionExit">
@@ -570,6 +581,12 @@
    <class>DataFrameView</class>
    <extends>QTableView</extends>
    <header>dataframeview.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ColoringWidget</class>
+   <extends>QWidget</extends>
+   <header>coloringwidget.h</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
