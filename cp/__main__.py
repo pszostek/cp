@@ -69,6 +69,8 @@ class MainWindow(QMainWindow, IStateful):
         self.filterWidget.setEnabled(False)
         self.filterWidget.hide()
         self.filterWidget.newFilterAdded.connect(self.onNewFilterAdded)
+        self.coloringWidget.setEnabled(False)
+        self.coloringWidget.hide()
 
         ####
         self.data_frames = dict()  # (path, fileObject) dictionary
@@ -224,6 +226,14 @@ class MainWindow(QMainWindow, IStateful):
         if self.dataDisplayed:
             self.pivotData()
 
+    def toggleColoringWidget(self):
+        if self.coloringWidget.isHidden():
+            self.coloringWidget.show()
+            self.coloringWidgetButton.setText(">>> Colors")
+        else:
+            self.coloringWidget.hide()
+            self.coloringWidgetButton.setText("<<< Colors")
+
     def togglefilterWidget(self):
         if self.filterWidget.isHidden():
             self.filterWidget.show()
@@ -231,6 +241,7 @@ class MainWindow(QMainWindow, IStateful):
         else:
             self.filterWidget.hide()
             self.filterWidgetButton.setText("<<< Filters")
+
 
     def addDataFile(self):
         selected_file_paths = QFileDialog.getOpenFileNames(
@@ -411,9 +422,8 @@ class MainWindow(QMainWindow, IStateful):
         path = data_frame.path
         table_name = os.path.basename(path)
         self.filterWidget.addDataFrame(data_frame=data_frame,
-                                         table_name=table_name,
-                                         table_columns=data_frame.columns)
-        self.filterWidget.setEnabled(True)
+                                       table_name=table_name,
+                                       table_columns=data_frame.columns)
 
     def _addNewItemsToComboBoxes(self, data_frame):
         if len(self.data_frames) > 0:
@@ -486,6 +496,7 @@ class MainWindow(QMainWindow, IStateful):
         self.clearButton.clicked.connect(self.clearComboChoices)
         self.clearButton.setEnabled(False)
         self.filterWidgetButton.released.connect(self.togglefilterWidget)
+        self.coloringWidgetButton.released.connect(self.toggleColoringWidget)
 
     def _initTreeViews(self):
         verticalHeaderView = HierarchicalHeaderView(Qt.Horizontal, self)
