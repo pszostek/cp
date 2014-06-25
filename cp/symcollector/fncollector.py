@@ -21,40 +21,39 @@ def getFunctions(dso):
     return filterSymbols(symbols)
 
 def extractClassname(row):
-	name = row["name"]
+    name = row["name"]
 
-	# Get rid of parantheses
-	if "(" in name:
-		name = name[:name.rindex("(")]
+    # Get rid of parantheses
+    if "(" in name:
+        name = name[:name.rindex("(")]
 
-	# Get rid of function name
-	if "::" in name:
-		index = len(name)-1
-		depth = 0
-		while not (name[index] == ":" and depth == 0):
-			chopped = name[:index]
+    # Get rid of function name
+    if "::" in name:
+        index = len(name)-1
+        depth = 0
+        while not (name[index] == ":" and depth == 0):
+            chopped = name[:index]
 
-			if chopped.endswith("operator>>") or chopped.endswith("operator<<"):
-				index -= 10
-				continue
+            if chopped.endswith("operator>>") or chopped.endswith("operator<<"):
+                index -= 10
+                continue
 
-			if chopped.endswith("operator>") or chopped.endswith("operator<"):
-				index -= 9
-				continue
+            if chopped.endswith("operator>") or chopped.endswith("operator<"):
+                index -= 9
+                continue
 
-			if name[index] == ">":
-				depth += 1
-			if name[index] == "<":
-				depth -= 1
-			index -= 1
-		index -= 1
-		return name[:index]
-
+            if name[index] == ">":
+                depth += 1
+            if name[index] == "<":
+                depth -= 1
+            index -= 1
+        index -= 1
+        return name[:index]
     return None
 
 # Receives the output from getFunctions and returns
 # just the names of the classes (or toplevel namespaces
-# in which there are functions not belonging to a class)	
+# in which there are functions not belonging to a class)    
 def getClassnames(df):
     classnames = df.apply(extractClassname, axis=1)
     classnames = pandas.DataFrame(classnames, columns=["name"])
