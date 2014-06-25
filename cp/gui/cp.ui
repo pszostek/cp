@@ -338,6 +338,9 @@
                 <property name="horizontalScrollBarPolicy">
                  <enum>Qt::ScrollBarAlwaysOff</enum>
                 </property>
+                <attribute name="horizontalHeaderVisible">
+                 <bool>false</bool>
+                </attribute>
                 <attribute name="verticalHeaderVisible">
                  <bool>true</bool>
                 </attribute>
