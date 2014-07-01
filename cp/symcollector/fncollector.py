@@ -4,7 +4,7 @@ import pandas, symcollector
 def filterSymbols(df):
     df = df[["addr","size","name"]]
     filtered = df[ (df.addr > 0) & (df.size > 0) ]
-    filtered["end"] = filtered["addr"] + filtered["size"]
+    filtered["end"] = filtered["addr"] + filtered["size"] - 1
     final = filtered[["addr","end","name"]]
     final.columns = ["start", "end", "name"]
     return final

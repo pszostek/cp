@@ -1,5 +1,6 @@
 
 import tags.tag, symcollector.fncollector
+import pandas
 from PySide import QtGui, QtCore
 #import gui.hierarchical_header.HierarchicalHeaderView 
 from gui.HierarchicalHeaderView import HierarchicalHeaderView
@@ -10,7 +11,7 @@ class TagHeaderModel(QtCore.QAbstractTableModel):
     def rowCount(self, parent=QtCore.QModelIndex()):
         return 3
     def columnCount(self, parent=QtCore.QModelIndex()):
-        return 5
+        return 3
     def headerData(self, section, orientation, role):
         pass
     def data(self, index, role=QtCore.Qt.DisplayRole):
@@ -23,12 +24,12 @@ class TagHeaderModel(QtCore.QAbstractTableModel):
             horizmodel.appendColumn([elements])
             cycles = QtGui.QStandardItem("Cycles")
             horizmodel.appendColumn([cycles])
-            cycles.appendColumn([QtGui.QStandardItem("SIMD")])
-            cycles.appendColumn([QtGui.QStandardItem("NON SIMD")])
+            #cycles.appendColumn([QtGui.QStandardItem("SIMD")])
+            #cycles.appendColumn([QtGui.QStandardItem("NON SIMD")])
 
             misses = QtGui.QStandardItem("Cache misses")
-            misses.appendColumn([QtGui.QStandardItem("SIMD")])
-            misses.appendColumn([QtGui.QStandardItem("NON SIMD")])
+            #misses.appendColumn([QtGui.QStandardItem("SIMD")])
+            #misses.appendColumn([QtGui.QStandardItem("NON SIMD")])
             horizmodel.appendColumn([misses])
             return horizmodel        
         if role == QtCore.Qt.DisplayRole:
@@ -54,7 +55,7 @@ class TagItem(object):
     def data(self, column):
         if column == 0:
             return self._tag.label
-        return "TBD"
+        return self._tag.getSamples()[column]
     def getParent(self):
         return self._parent 
     def childCount(self):
@@ -68,9 +69,12 @@ class TagModel(QtCore.QAbstractItemModel):
         #df = symcollector.fncollector.getFunctions("/home/gbitzes/feather/bin/tests")
         #self.rootTag = tags.tag.functionTag(df)
         self.rootTag = tags.tag.classTag(df)
+        dynamic = pandas.DataFrame.from_csv("fakedata_shapes.csv")
+        dynamic = dynamic.reset_index()
+        dynamic = tags.tag.makeCumulative(dynamic)
         self.rootTag2 = tags.tag.Tag(0, 0, "ROOT TAG")
         self.rootTag2.addChild(self.rootTag)
-        self.rootTag2.finalize()
+        self.rootTag2.finalize(dynamic)
         self.rootItem = TagItem(self.rootTag2)
         self.protectFromTheWrathOfGC = []
     #def data(self, index, role=QtCore.Qt.DisplayRole):

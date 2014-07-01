@@ -31,6 +31,28 @@ def merge(l):
 # ie for [(1, 4)] and [(2, 3)] should return [(2, 3)]
 def intersection(l1, l2):
     pass
+
+# Given a list of ranges and a cumulative Df,
+# sum up all samples that fall within the ranges
+def aggregate(ranges, cumulative):
+    total = cumulative.irow(0) - cumulative.irow(0)
+    print(total)
+    addr = cumulative["addr"]
+    for (start, end) in ranges:
+        endvalue = addr.values.searchsorted(end+1)-1
+        startvalue = addr.values.searchsorted(start)-1
+        print("For range {0}-{1}".format(start,end))
+        print("endvalue = {0}, startvalue = {1}".format(endvalue, startvalue))
+        print(cumulative.irow(endvalue))
+        print(cumulative.irow(startvalue))
+        if(startvalue >= 0):
+            total += (cumulative.irow(endvalue) - cumulative.irow(startvalue))
+        else:
+            total += cumulative.irow(endvalue)
+
+    total["addr"] = -1
+    return total
+
 # Receives a dataframe that contains data from
 # dynamic analysis and returns a cumulative version
 def makeCumulative(df):
@@ -57,24 +79,24 @@ class Tag(object):
     # Recursively feed the tag tree with dynamic analysis data
     # Input should be a dataframe with the *cumulative* values
     # from samples, sorted by address 
-    def feed(self, cumulativeDf, cumulativeLookup):
+    def feed(self, cumulativeDf):
         self.cumulativeDf = cumulativeDf
-        self.cumulativeLookup = cumulativeLookup
+        self.samples = aggregate(self.ranges, self.cumulativeDf)
+    def getSamples(self):
+        return self.samples
     def addChild(self, tag):
         self.children += [tag] 
         self.childLookup[tag.label] = tag
     def lookup(self, label):
         return self.childLookup[label]
-    def finalize(self):
+    def finalize(self, cumulativeDf=None):
         childranges = []
         for child in self.children:
-            if self.cumulativeDf:
-                child.cumulativeDf = self.cumulativeDf
-                child.cumulativeLookup = self.cumulativeLookup
-            child.finalize()
+            child.finalize(cumulativeDf)
             childranges += child.ranges
         self.ranges = merge(self.ranges + childranges)
-
+        if cumulativeDf is not None:
+            self.feed(cumulativeDf)
     def show(self, prefix=""):
         print(prefix + self.label)
         for r in self.ranges:
