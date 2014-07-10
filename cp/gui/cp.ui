@@ -505,6 +505,9 @@
               <item>
                <widget class="PivotComboBox" name="displayedValueComboBox"/>
               </item>
+              <item>
+               <widget class="PivotComboBox" name="displayedValueComboBox2"/>
+              </item>
              </layout>
             </item>
            </layout>
