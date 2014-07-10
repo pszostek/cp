@@ -404,6 +404,16 @@
                </spacer>
               </item>
               <item>
+               <widget class="Line" name="line_9">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="ProgressIndicator" name="progressIndicator" native="true"/>
+              </item>
+              <item>
                <widget class="Line" name="line">
                 <property name="orientation">
                  <enum>Qt::Vertical</enum>
@@ -702,6 +712,12 @@
    <class>ColoringWidget</class>
    <extends>QWidget</extends>
    <header>coloringwidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ProgressIndicator</class>
+   <extends>QWidget</extends>
+   <header>progressindicator.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -19,11 +19,13 @@ from gui.TagModel import TagModel
 from gui.TagModel import TagHeaderModel
 from gui.hierarchical_header import HierarchicalHeaderView
 from gui.coloring_widget import ColoringWidget
+from gui.progress_indicator import ProgressIndicator
 from enum import Enum
 import numpy
 import scipy
+import threading
 
-C_COLUMN, C_ROW = 0, 1
+C_COLUMN, C_ROW, C_DISPLAYED = 0, 1, 2
 
 
 class MainWindow(QMainWindow, IStateful):
@@ -49,7 +51,8 @@ class MainWindow(QMainWindow, IStateful):
         self.customWidgets = [PivotComboBox,
                               DataFrameView,
                               FilterWidget,
-                              ColoringWidget]
+                              ColoringWidget,
+                              ProgressIndicator]
         loadUi('gui/cp.ui', baseinstance=self,
                customWidgets=self.customWidgets)
 
@@ -349,35 +352,46 @@ class MainWindow(QMainWindow, IStateful):
         filters = self.filterWidget.getActiveFilters()
         (row_tuples,
             column_tuples,
-            displayed_value,
+            displayed_value_tuples,
             aggfunc) = self._getComboChoices()
         if len(row_tuples) == 0 or len(column_tuples) == 0:
             QMessageBox.warning(self, "Error",
                     "Please choose at least one dimension in both axes")
             return
-        if displayed_value == (None, None):
+        if displayed_value_tuples == (None, None):
             QMessageBox.warning(self, "Error",
                     "Please choose a dimension to be displayed")
             return
-        self.statusBar().showMessage("Processing.")
+        self.progressIndicator.startAnimation()
+        # return the value in the input dictionary - ugly as hell
+        ret = {}
+        print(displayed_value_tuples)
         try:
-            pivoted_data_frame = pivot.pivot(
-                data_frames_dict=self.data_frames,
-                column_tuples=column_tuples,
-                row_tuples=row_tuples,
-                displayed_value=displayed_value,
-                filters=filters,
-                aggfunc=aggfunc)
-            #print(pivoted_data_frame.columns)
-          #  self.dataFrameView.setItemDelegate(ColorDelegate())
+            processing_thread = threading.Thread(target=pivot.pivot,
+                                                kwargs={'data_frames_dict':self.data_frames,
+                                                'column_tuples':column_tuples,
+                                                'row_tuples':row_tuples,
+                                                'displayed_value_tuples':displayed_value_tuples,
+                                                'filters':filters,
+                                                'aggfunc':aggfunc,
+                                                'ret':ret})
+            processing_thread.start()
+            count = 1
+            while processing_thread.is_alive():
+                count += 1
+                self.statusBar().showMessage(str(count))
+            processing_thread.join()
+            pivoted_data_frame = ret[0]
             self.dataFrameView.setDataFrame(pivoted_data_frame)
-            self.statusBar().showMessage("Done.")
+            
             self.dataChanged.emit()
 
         except PivotEngineException, e:
             QMessageBox.warning(self,
                                 "Error",
                                 str(e))
+        finally:
+            self.progressIndicator.stopAnimation()
 
 
     def propagateComboBoxChange(self, source, index):
@@ -443,6 +457,7 @@ class MainWindow(QMainWindow, IStateful):
             string = "%s::%s" % (table_name, column_name)
             user_data = (path, column_name)
             self.displayedValueComboBox.insertItem(1, string, user_data)
+            self.displayedValueComboBox2.insertItem(1, string, user_data)
             self.rowComboBox1.insertItem(1, string, user_data)
             self.rowComboBox2.insertItem(1, string, user_data)
             self.rowComboBox3.insertItem(1, string, user_data)
@@ -531,6 +546,21 @@ class MainWindow(QMainWindow, IStateful):
         self.displayedValueComboBox.role = None
         self.displayedValueComboBox.level = 0
         self.displayedValueComboBox.setEnabled(False)
+        self.displayedValueComboBox.role = C_DISPLAYED
+
+        self.displayedValueComboBox2.setVisible(False)
+        self.displayedValueComboBox2.activated.connect(
+            partial(self.propagateComboBoxChange, self.displayedValueComboBox2))
+        self.displayedValueComboBox.role = C_DISPLAYED
+        self.displayedValueComboBox.activated.connect(
+            self._onDisplayedValueComboActivated)
+
+    def _onDisplayedValueComboActivated(self, index):
+        if index == 0:
+            self.displayedValueComboBox2.setVisible(False)
+        else:
+            self.displayedValueComboBox2.setVisible(True)
+
 
     def _initMenuActions(self):
         self.actionExit.triggered.connect(self.close)
@@ -668,11 +698,16 @@ class MainWindow(QMainWindow, IStateful):
     def _getComboChoices(self):
         column_combos = self._getColumnCombos()
         row_combos = self._getRowCombos()
+        displayed_value_combos = self._getDisplayedValueCombos()
 
         chosen_rows = []
         chosen_columns = []
+        chosen_values = []
 
-        for chosen_items, combos in [(chosen_rows, row_combos), (chosen_columns, column_combos)]:
+        # make a check below
+        for chosen_items, combos in [(chosen_rows, row_combos),
+                                     (chosen_columns, column_combos),
+                                     (chosen_values, displayed_value_combos)]:
             missing_choice = False
             for combo in combos:
                 if combo.level == 0:
@@ -695,18 +730,13 @@ class MainWindow(QMainWindow, IStateful):
                     chosen_items.append(column_tuple)
                 except TypeError:
                     pass
-        try:
-            displayed_value = tuple(self.displayedValueComboBox.itemData(
-                self.displayedValueComboBox.currentIndex()))
-        except TypeError:
-            displayed_value = (None, None)
         aggfunc = self.aggFuncComboBox.itemData(self.aggFuncComboBox.currentIndex())
-        return chosen_rows, chosen_columns, displayed_value, aggfunc
+        return chosen_rows, chosen_columns, chosen_values, aggfunc
 
     def _getOtherCombos(self, than):
         column_combos = set(self._getColumnCombos())
         row_combos = set(self._getRowCombos())
-        displayed_value_combo = set([self.displayedValueComboBox])
+        displayed_value_combo = set(self._getDisplayedValueCombos())
         return column_combos.union(row_combos).union(displayed_value_combo).difference(set([than]))
 
     def _getColumnCombos(self):
@@ -718,6 +748,10 @@ class MainWindow(QMainWindow, IStateful):
         return [self.rowComboBox1,
                 self.rowComboBox2,
                 self.rowComboBox3]
+
+    def _getDisplayedValueCombos(self):
+        return [self.displayedValueComboBox,
+                self.displayedValueComboBox2]
 
     def _getAvailableColumns(self):
         columns = list()

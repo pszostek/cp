@@ -18,7 +18,7 @@
 from PySide.QtGui import *
 from PySide.QtCore import *
 
-class QProgressIndicator(QWidget):
+class ProgressIndicator(QWidget):
 
     def __init__(self, parent, color = None):
         QWidget.__init__(self, parent)
