@@ -86,7 +86,7 @@ def column_to_hex(data_frame, column_name):
     if column_name in data_frame.columns:
         data_frame[column_name] = data_frame[column_name].apply(lambda number: '0x%X' % number)
 
-def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters, aggfunc=None):
+def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value_tuples, filters, ret, aggfunc=None):
     """ Returns a pivoted data frame
 
     data_frames_dict: a dictionary with csv paths as keys and Pandas.DataFrame as values
@@ -108,7 +108,8 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters,
         df_column_dict[csv_path].add(column_name)
     for csv_path, row_name in row_tuples:
         df_column_dict[csv_path].add(row_name)
-    df_column_dict[displayed_value[0]].add(displayed_value[1])
+    for csv_path, row_name in displayed_value_tuples:
+        df_column_dict[csv_path].add(row_name)
 
     # if columns from different tables -> join on the columns with the same
     # name
@@ -132,9 +133,11 @@ def pivot(data_frames_dict, column_tuples, row_tuples, displayed_value, filters,
 
     from pandas.tools.pivot import pivot_table
     data_frame = pivot_table(data_frame,
-                          values=displayed_value[1],
+                          values=displayed_value_tuples[0][1],
                           rows=row_names,
                           cols=column_names,
                           fill_value=0,
                           aggfunc=aggfunc)
-    return data_frame
+    # return data_frame
+    ret[0]=data_frame
+    
