@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "xed_disass.h"
-#include "include/xed-category-enum.h"
+#include "xed-category-enum.h"
 
 #define TRUE 1
 #define FALSE 0
