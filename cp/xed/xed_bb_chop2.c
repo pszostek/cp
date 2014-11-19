@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "xed_disass.h"
-#include "include/xed-category-enum.h"
+#include "xed-category-enum.h"
 
 //#define DEBUG
 

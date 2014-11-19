@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "xed_disass.h"
-#include "include/xed-category-enum.h"
+#include "xed-category-enum.h"
 
 int terminates_bb(xed_decoded_inst_t* inst) {
     xed_category_enum_t category = xed_decoded_inst_get_category(inst);

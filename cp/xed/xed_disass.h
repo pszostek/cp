@@ -1,4 +1,4 @@
-#include "include/xed-interface.h"
+#include "xed-interface.h"
 
 #if !defined(_XED_DISASS_H_)
 #define _XED_DISASS_H
