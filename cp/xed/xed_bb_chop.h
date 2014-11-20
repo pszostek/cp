@@ -1,4 +1,6 @@
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -10,7 +12,9 @@ extern "C" {
 #include "xed_disass.h"
 #include "xed-category-enum.h"
 #include "xed-decoded-inst.h"
+#ifdef __cplusplus
 }
+#endif
 #include <list>
 
 
@@ -39,6 +43,6 @@ typedef struct {
   jump_t jump;
 } bb_t;
 
-std::list<bb_t> detect_basic_blocks(char* elf_data, size_t size);
+std::list<bb_t> detect_basic_blocks(char* elf_data, unsigned int fsize);
 
 #endif
