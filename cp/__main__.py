@@ -69,6 +69,8 @@ class MainWindow(QMainWindow, IStateful):
         self._initAggregateWidgets()
         self._initDataFrameView()
 
+        self.displayedValueCombos = [self.displayedValueComboBox]
+        # self.verticalLayout_5
         self.filterWidget.setEnabled(False)
         self.filterWidget.hide()
         self.filterWidget.newFilterAdded.connect(self.onNewFilterAdded)
@@ -362,11 +364,12 @@ class MainWindow(QMainWindow, IStateful):
             QMessageBox.warning(self, "Error",
                     "Please choose a dimension to be displayed")
             return
-        self.progressIndicator.startAnimation()
+        self.progressIndicator.busy()
         # return the value in the input dictionary - ugly as hell
         ret = {}
         print(displayed_value_tuples)
         try:
+            self.statusBar().showMessage("Processing")
             processing_thread = threading.Thread(target=pivot.pivot,
                                                 kwargs={'data_frames_dict':self.data_frames,
                                                 'column_tuples':column_tuples,
@@ -377,21 +380,18 @@ class MainWindow(QMainWindow, IStateful):
                                                 'ret':ret})
             processing_thread.start()
             count = 1
-            while processing_thread.is_alive():
-                count += 1
-                self.statusBar().showMessage(str(count))
             processing_thread.join()
             pivoted_data_frame = ret[0]
             self.dataFrameView.setDataFrame(pivoted_data_frame)
             
             self.dataChanged.emit()
-
+            self.progressIndicator.stopAnimation()
         except PivotEngineException, e:
             QMessageBox.warning(self,
                                 "Error",
                                 str(e))
         finally:
-            self.progressIndicator.stopAnimation()
+            self.statusBar().showMessage("Processing done")
 
 
     def propagateComboBoxChange(self, source, index):
@@ -457,7 +457,6 @@ class MainWindow(QMainWindow, IStateful):
             string = "%s::%s" % (table_name, column_name)
             user_data = (path, column_name)
             self.displayedValueComboBox.insertItem(1, string, user_data)
-            self.displayedValueComboBox2.insertItem(1, string, user_data)
             self.rowComboBox1.insertItem(1, string, user_data)
             self.rowComboBox2.insertItem(1, string, user_data)
             self.rowComboBox3.insertItem(1, string, user_data)
@@ -543,23 +542,61 @@ class MainWindow(QMainWindow, IStateful):
     def _initDisplayedValueComboBox(self):
         self.displayedValueComboBox.activated.connect(
             partial(self.propagateComboBoxChange, self.displayedValueComboBox))
+        self.displayedValueComboBox.activated.connect(
+            partial(self._onDisplayedValueComboActivated, self.displayedValueComboBox))
         self.displayedValueComboBox.role = None
         self.displayedValueComboBox.level = 0
         self.displayedValueComboBox.setEnabled(False)
         self.displayedValueComboBox.role = C_DISPLAYED
+        self.groupBox.hide()
+        self.groupBox.setCheckable(False)
 
-        self.displayedValueComboBox2.setVisible(False)
-        self.displayedValueComboBox2.activated.connect(
-            partial(self.propagateComboBoxChange, self.displayedValueComboBox2))
-        self.displayedValueComboBox.role = C_DISPLAYED
-        self.displayedValueComboBox.activated.connect(
-            self._onDisplayedValueComboActivated)
-
-    def _onDisplayedValueComboActivated(self, index):
+    def _onDisplayedValueComboActivated(self, source, index):
         if index == 0:
-            self.displayedValueComboBox2.setVisible(False)
-        else:
-            self.displayedValueComboBox2.setVisible(True)
+            if source.level == 1:
+                self.groupBox.hide()
+                self.bottomRadioButton.setChecked(False)
+                self.topRadioButton.setChecked(False)
+            toBeDeleted = set()
+            for combo in self._getDisplayedValueCombos():
+                if combo.level > source.level:
+                    toBeDeleted.add(combo)
+                    combo.clear()
+                    combo.deleteLater()
+            for combo in toBeDeleted:
+                self.displayedValueCombos.remove(combo)
+
+
+        elif index != 0 and source.previous_index == 0:
+            if source.level == 1:
+                self.groupBox.show()
+                self.bottomRadioButton.setChecked(True)
+            new_combo = PivotComboBox(self)
+            new_combo.role = source.role
+            new_combo.level = source.level + 1
+
+            new_combo.activated.connect(
+                partial(self.propagateComboBoxChange, new_combo))
+            new_combo.activated.connect(
+                partial(self._onDisplayedValueComboActivated, new_combo))
+
+            #copy items from the source combo box
+            for idx in reversed(xrange(source.count())):
+                if idx == 0:
+                    continue
+                new_combo.insertItem(1, source.itemText(idx), source.itemData(idx))
+            for disabledItem in source.disabledRows:
+                new_combo.disableItem(disabledItem)
+            new_combo.disableItem(index)
+
+            #insert the widget after the last one, but before the group box
+            self.verticalLayout_5.insertWidget(len(self.displayedValueCombos)+1, new_combo)
+            self.displayedValueCombos.append(new_combo)
+            new_combo.show()
+        # if index == 0:
+        #     self.displayedValueComboBox2.setVisible(False)
+        # else:
+        #     self.displayedValueComboBox2.setVisible(True)
 
 
     def _initMenuActions(self):
@@ -750,8 +787,7 @@ class MainWindow(QMainWindow, IStateful):
                 self.rowComboBox3]
 
     def _getDisplayedValueCombos(self):
-        return [self.displayedValueComboBox,
-                self.displayedValueComboBox2]
+        return self.displayedValueCombos
 
     def _getAvailableColumns(self):
         columns = list()

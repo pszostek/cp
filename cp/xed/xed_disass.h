@@ -1,7 +1,17 @@
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "xed-interface.h"
 
-#if !defined(_XED_DISASS_H_)
-#define _XED_DISASS_H
+#ifdef __cplusplus
+}
+#endif
+
+
+#ifndef _XED_DISASS_H_
+#define _XED_DISASS_H_
 
 #define INST_LIST_INIT_CAPACITY 32
 

@@ -65,15 +65,20 @@ class PivotComboBox(QComboBox, IStateful):
         self.clear()
         (self.role,
             self.level,
-            self.disabledRows,
+            disabledRows, #self.disabledRows,
             self.previous_index,
             current_index,
             is_enabled,
             items) = state
+
         for item in reversed(items):
             self.insertItem(
                 1,
                 item[0],
                 item[1])  # insert at #1, #0 is taken by ""
+
+        for disabledRow in disabledRows:
+            self.disableItem(disabledRow)
+
         self.setCurrentIndex(current_index)
         self.setEnabled(is_enabled)
