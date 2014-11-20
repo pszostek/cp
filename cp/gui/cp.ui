@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1115</width>
+    <width>1130</width>
     <height>883</height>
    </rect>
   </property>
@@ -434,22 +434,6 @@
                 </property>
                </widget>
               </item>
-              <item row="0" column="0">
-               <widget class="DataFrameView" name="dataFrameView">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>100</horstretch>
-                  <verstretch>100</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="verticalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-                <property name="horizontalScrollBarPolicy">
-                 <enum>Qt::ScrollBarAlwaysOff</enum>
-                </property>
-               </widget>
-              </item>
               <item row="1" column="0">
                <widget class="QTableWidget" name="columnAggWidget">
                 <property name="sizePolicy">
@@ -501,6 +485,22 @@
                 </property>
                </widget>
               </item>
+              <item row="0" column="0">
+               <widget class="DataFrameView" name="dataFrameView">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                  <horstretch>100</horstretch>
+                  <verstretch>100</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="verticalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+               </widget>
+              </item>
              </layout>
             </item>
             <item row="0" column="0">
@@ -516,7 +516,27 @@
                <widget class="PivotComboBox" name="displayedValueComboBox"/>
               </item>
               <item>
-               <widget class="PivotComboBox" name="displayedValueComboBox2"/>
+               <widget class="QGroupBox" name="groupBox">
+                <property name="title">
+                 <string>Last dimension</string>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_8">
+                 <item>
+                  <widget class="QRadioButton" name="topRadioButton">
+                   <property name="text">
+                    <string>on the top</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QRadioButton" name="bottomRadioButton">
+                   <property name="text">
+                    <string>on the bottom</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
               </item>
              </layout>
             </item>
@@ -621,7 +641,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1115</width>
+     <width>1130</width>
      <height>27</height>
     </rect>
    </property>
@@ -723,4 +743,7 @@
  </customwidgets>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup"/>
+ </buttongroups>
 </ui>

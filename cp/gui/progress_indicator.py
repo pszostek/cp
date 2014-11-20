@@ -28,6 +28,7 @@ class ProgressIndicator(QWidget):
         self.delay = 80
         self.displayedWhenStopped = True
         self.color = self.palette().color(QPalette.Text) if not color else QColor(color)
+        self.setEnabled(False)
 
     def busy(self):
         self.startAnimation()
@@ -44,11 +45,13 @@ class ProgressIndicator(QWidget):
         return self.displayedWhenStopped
 
     def startAnimation(self):
+        self.setEnabled(True)
         self.angle = 0
         if self.timerId == -1:
             self.timerId = self.startTimer(self.delay)
 
     def stopAnimation(self):
+        self.setEnabled(False)
         if not self.timerId == -1:
             self.killTimer(self.timerId)
         self.timerId = -1
@@ -110,3 +113,13 @@ class ProgressIndicator(QWidget):
                               capsuleRadius)
             p.restore()
 
+
+if __name__ == "__main__":
+    import sys
+
+    argv = sys.argv
+    app = QApplication(argv)
+    widget = ProgressIndicator(None)
+    widget.show()
+    widget.startAnimation()
+    app.exec_()
