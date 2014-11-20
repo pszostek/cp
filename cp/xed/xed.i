@@ -6,12 +6,19 @@
 %include "stdint.i"
 %include "typemaps.i"
 %include "cstring.i"
+//http://www.swig.org/Doc1.3/Library.html#Library_stl_cpp_library
+%include "std_list.i"
+
+
+
 
 // for functions like void dump(char* buf, int buflen)
 // this allows to omit the first argument and to return
 // a Python-string instead of a null
 
 
+// http://www.swig.org/Doc1.3/Library.html#Library_nn10
+%apply (char* STRING, size_t LENGTH) { (char* elf_data, size_t fsize)};
 %typemap(in) (char* data, unsigned int length) {
   if (!PyString_Check($input)) {
     PyErr_SetString(PyExc_ValueError, "Expecting a string");
@@ -20,6 +27,16 @@
   $1 = PyString_AsString($input);
   $2 = PyString_Size($input);
 }
+
+%typemap(in) (char* elf_data, unsigned int fsize) {
+  if (!PyString_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a string");
+    return NULL;
+  }
+  $1 = PyString_AsString($input);
+  $2 = PyString_Size($input);
+}
+
 %{
     #include <assert.h>
     #include "xed_disass.h"
@@ -102,8 +119,13 @@
     inst_list_delete($1);
 }
 
+
 %include "xed_disass.h"
 %include "xed_bb_chop.h"
+
+namespace std {
+   %template(bbslist) list<bb_t>;
+};
 
 %array_class(char, bytesArray)
 %extend xed_decoded_inst_t {

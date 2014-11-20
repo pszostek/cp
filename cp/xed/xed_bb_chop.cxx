@@ -12,12 +12,12 @@
 #include <list>
 
 //#define DEBUG
-#define VERBOSE
+//#define VERBOSE
 
 
 int qcomp(const void *a, const void *b) { return (((bb_t *)a)->addr)-(((bb_t *)b)->addr); }
 
-std::list<bb_t> detect_basic_blocks(char* elf_data, size_t fsize) {
+std::list<bb_t> detect_basic_blocks(char* elf_data, unsigned int fsize) {
     // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -113,6 +113,7 @@ std::list<bb_t> detect_basic_blocks(char* elf_data, size_t fsize) {
                       printf("Bing! 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_addr, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
 #endif
                       bbs[bb_count++].addr = decode_window_start + cur_inst_len; //start a new bb after the current jump instruction
+
                       if (jump_addr && jump_addr < 0x4000000000) {
                         bbs[bb_count++].addr = jump_addr; //start a new bb at the jump destination
                       }
