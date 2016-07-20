@@ -6,6 +6,7 @@ from collections import namedtuple
 from elftools.common.py3compat import bytes2str
 from elftools.elf.elffile import ELFFile as ELFFile_
 from elftools.elf.sections import Section
+from elftools.common.py3compat import bytes2str,
 
 Func = namedtuple("Func", ["name", "mangled_name", "offset", "size"])
 
@@ -19,7 +20,7 @@ class ELFFile(ELFFile_):
         self._fd = open(filepath, 'rb')
         ELFFile_.__init__(self, self._fd)
 
-    def __del__(self):
+    def __del__(self):  
         self._fd.close()
 
     def get_offset_for_virtual_address(self, vaddr):
@@ -152,7 +153,26 @@ class ELFFile(ELFFile_):
                 return section
         raise ELFFileError("There is no section that contains given offset: %d" % offset)
 
-    def get_text_from_offset(self, offset):
+    def get_symbol_by_offset(self, offset):
+        """
+        Figures out name of the symbol for the given offset.
+
+        offset -- a number expressing the offset with substracted base
+
+        Returns None or a tuple. None is returned when there is no corresponding symbol
+        (e.g. the binary is stripped or the offset is malformed)
+        Otherwise returns a tuple ("namespace1", "namespace_n", "class1", "class_n", "function").
+        Length of the tuple varies from 1 to many, depending on the number of
+        enclosing namespaces and classes.
+        """
+        for section in self.iter_sections():
+            for nsym, symbol in enumerate(section.iter_symbols()):
+                # symbol names are truncated to 25 chars, similarly to readelf
+                print symbol['st_value']
+                print symbol['st_size']
+                print bytes2str(symbol.name)
+
+    def get_text_by_offset(self, offset):
         pass
 
 ### private functions ###
