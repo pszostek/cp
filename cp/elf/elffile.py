@@ -3,13 +3,15 @@
 
 from __future__ import print_function
 from collections import namedtuple
-from elftools.common.py3compat import bytes2str
-from elftools.elf.elffile import ELFFile as ELFFile_
-from elftools.elf.sections import Section
-from elftools.common.py3compat import bytes2str,
+from pyelftools.elftools.elf.elffile import ELFFile as ELFFile_
+from pyelftools.elftools.elf.sections import Section
+from pyelftools.elftools.common.py3compat import bytes2str
 
 Func = namedtuple("Func", ["name", "mangled_name", "offset", "size"])
 
+if __package__ is None:
+    from os import sys, path
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 class ELFFileError(Exception):
     def __init__(self, what):
@@ -19,8 +21,9 @@ class ELFFile(ELFFile_):
     def __init__(self, filepath):
         self._fd = open(filepath, 'rb')
         ELFFile_.__init__(self, self._fd)
+        self._symbol_interval_tree = self._build_symbol_tree()
 
-    def __del__(self):  
+    def __del__(self):
         self._fd.close()
 
     def get_offset_for_virtual_address(self, vaddr):
@@ -89,13 +92,13 @@ class ELFFile(ELFFile_):
         for func in self.iter_functions():
             if func.mangled_name == mangled_name:
                 return func
-        raise ELFFileError("There is no function with mangled name %s" % mangled_name) 
+        raise ELFFileError("There is no function with mangled name %s" % mangled_name)
 
     def get_function_by_name(self, name):
         for func in self.iter_functions():
             if func.name == name:
                 return func
-        raise ELFFileError("There is no %s function" % name) 
+        raise ELFFileError("There is no %s function" % name)
 
     def iter_symbols(self):
         sym_name = b".symtab"
@@ -159,18 +162,16 @@ class ELFFile(ELFFile_):
 
         offset -- a number expressing the offset with substracted base
 
-        Returns None or a tuple. None is returned when there is no corresponding symbol
+        Returns None or a string. None is returned when there is no corresponding symbol
         (e.g. the binary is stripped or the offset is malformed)
-        Otherwise returns a tuple ("namespace1", "namespace_n", "class1", "class_n", "function").
-        Length of the tuple varies from 1 to many, depending on the number of
-        enclosing namespaces and classes.
+        Otherwise returns demangled symbol name
         """
-        for section in self.iter_sections():
-            for nsym, symbol in enumerate(section.iter_symbols()):
-                # symbol names are truncated to 25 chars, similarly to readelf
-                print symbol['st_value']
-                print symbol['st_size']
-                print bytes2str(symbol.name)
+        symbol = self._symbol_interval_tree.search(offset) # returns a set
+        if not symbol: #an empty set
+            return None
+        else:
+            #assert len(symbol) == 1
+            return list(symbol)[0].data # sets are not indexed, must be converted to a list
 
     def get_text_by_offset(self, offset):
         pass
@@ -189,8 +190,12 @@ class ELFFile(ELFFile_):
         symtab = self.get_section_by_name(sym_name)
         return symtab
 
-    def _iter_func(self, symbols_iter):
-        from ..demangle import demangle
+    def _iter_func(self, symbols_iter=None):
+        from demangle import demangle
+        if symbols_iter is None:
+            symtab = self._get_symbol_table()
+            symbols_iter = symtab.iter_symbols()
+
         for sym in symbols_iter:
             if sym.entry['st_info']['type'] == 'STT_FUNC':
                 demangled_name = demangle.cplus_demangle(sym.name, 1)
@@ -208,12 +213,30 @@ class ELFFile(ELFFile_):
         sh = section.header
         return (offset >= sh['sh_offset']) and (offset < sh['sh_offset']+sh['sh_size'])
 
+    def _build_symbol_tree(self):
+        from intervaltree import IntervalTree, Interval
+        base = self._get_binary_base()
+        intervals = [Interval(func.offset-base, func.offset+func.size-base, func.name) for func in self._iter_func() if func.size != 0]
+        print(intervals)
+        return IntervalTree(intervals)
+
+    def _get_binary_base(self):
+        for segment in self.iter_segments():
+            if segment['p_type'] == "PT_LOAD" and segment['p_offset'] == 0:
+                return segment['p_vaddr']
+        raise ELFFileError("Can't find base for the .text segment")
+
   #  def _offset_inside_segment(self, offset, segment):
   #      sh = segment.header
   #      return (offset >= sh['p_paddr']) and (offset < sh['p_paddr']+sh['p_filesz'])
 
 if __name__ == "__main__":
-    elf = ELFFile("/home/paszoste/cp/cp/xed-ex1")
+    elf = ELFFile("/afs/cern.ch/user/p/paszoste/cp/simple-binary/a.out")
+    print(elf.get_symbol_by_offset(int('731', 16)))
+    print(elf.get_symbol_by_offset(int('982', 16)))
+    print(elf.get_symbol_by_offset(int('9cd', 16)))
+    print(elf.get_symbol_by_offset(int('9f5', 16)))
+    print(elf.get_symbol_by_offset(int('a42', 16)))
     # for symbol in elf.iter_symbols():
     #     print(symbol.name, symbol.entry["st_size"], symbol.entry["st_value"])
     textsec = elf.get_section_by_name('.text')
@@ -221,7 +244,7 @@ if __name__ == "__main__":
     # for sec in elf.iter_sections():
     #     print(sec.header)
     #     if sec['sh_type'] == 'SHT_STRTAB':
-    #         print(sec.get_string(49)) 
+    #         print(sec.get_string(49))
     # print("SEGMENT")
     # for seg in elf.iter_segments():
     #     print(seg.section_in_segment(textsec), seg.header)
