@@ -217,7 +217,6 @@ class ELFFile(ELFFile_):
         from intervaltree import IntervalTree, Interval
         base = self._get_binary_base()
         intervals = [Interval(func.offset-base, func.offset+func.size-base, func.name) for func in self._iter_func() if func.size != 0]
-        print(intervals)
         return IntervalTree(intervals)
 
     def _get_binary_base(self):
