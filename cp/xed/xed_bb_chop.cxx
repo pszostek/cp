@@ -17,7 +17,7 @@
 
 int qcomp(const void *a, const void *b) { return (((bb_t *)a)->addr)-(((bb_t *)b)->addr); }
 
-std::list<bb_t> detect_basic_blocks(char* elf_data, unsigned int fsize) {
+std::list<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize) {
     // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;

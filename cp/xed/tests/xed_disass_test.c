@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include "xed_disass.h"
 
 int main(int argc, char** argv) {

@@ -155,7 +155,7 @@ namespace std {
     }
 
     void __str__(char** buffer) {
-        xed_decoded_inst_s_get_mnemonic_intel($self, buffer);
+        xed_decoded_inst_dump_intel_format($self, *buffer, 64, 0);
     }
 
     void get_mnemonic_att(char** buffer) {
@@ -398,3 +398,4 @@ namespace std {
 // comment out xed_operand_values_is_prefetch
 // comment out xed_operand_values_has_disp
 // xed_bool_t
+
