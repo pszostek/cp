@@ -43,6 +43,7 @@ typedef struct {
   jump_t jump;
 } bb_t;
 
-std::list<bb_t> detect_basic_blocks(char* elf_data, unsigned int fsize);
+std::list<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize);
 
 #endif
+

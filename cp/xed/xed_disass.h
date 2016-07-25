@@ -4,6 +4,7 @@ extern "C" {
 #endif
 
 #include "xed-interface.h"
+#include <stddef.h>
 
 #ifdef __cplusplus
 }

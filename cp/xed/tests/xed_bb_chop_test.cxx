@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    std::list<bb_t> bbs = detect_basic_blocks(elf_data, newLen);
+    std::list<bb_t> bbs = detect_static_basic_blocks(elf_data, newLen);
     printf("%lu\n", bbs.size());
 
     #ifdef VERBOSE
