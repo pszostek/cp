@@ -1,21 +1,22 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include "xed_disass.h"
+#include "xed-category-enum.h"
+#include "xed-decoded-inst.h"
+#ifdef __cplusplus
+}
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <elf.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <cstddef>
 #include <sys/types.h>
 #include <unistd.h>
-#include "xed_disass.h"
-#include "xed-category-enum.h"
-#include "xed-decoded-inst.h"
-#ifdef __cplusplus
-}
+#include <vector>
 #endif
-#include <list>
 
 
 #ifndef _XED_BB_CHOP_
@@ -43,7 +44,9 @@ typedef struct {
   jump_t jump;
 } bb_t;
 
-std::list<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize);
+std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize);
+std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize);
+std::vector<int> test();
 
 #endif
 

@@ -1,10 +1,12 @@
 #include "xed_bb_chop.h"
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 #define VERBOSE
 
 int main(int argc, char** argv) {
-    size_t idx;
-
     if(argc != 3 && argc != 2) {
         printf("Usage: input_file [output_csv]\n");
         exit(1);
@@ -14,9 +16,6 @@ int main(int argc, char** argv) {
     size_t file_length;
 
     char *elf_data;
-    char *strtab;
-    int fd;
-    int i = 0, fsize = 0;
     size_t newLen = 0;
 
     if(fp != NULL) {
@@ -38,8 +37,11 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    std::list<bb_t> bbs = detect_static_basic_blocks(elf_data, newLen);
-    printf("%lu\n", bbs.size());
+    std::vector<uint64_t> addrs = new_detect_static_basic_blocks(elf_data, newLen);
+    cout << addrs.size() << endl;
+    for(auto i: addrs)
+        printf("0x%x\n", i);
+    /* std::vector<bb_t> bbs = detect_static_basic_blocks(elf_data, newLen);
 
     #ifdef VERBOSE
     printf("\t%8s %7s %4s %4s %3s   %8s %3s %3s\n",
@@ -51,7 +53,7 @@ int main(int argc, char** argv) {
         "Target",
         "COND",
         "DIR");        
-    for (std::list<bb_t>::const_iterator k=bbs.begin(); k!=bbs.end(); ++k) {
+     for (auto k=bbs.cbegin(); k!=bbs.cend(); ++k) {
       printf("\t%8x %7d %4d %4d %3s ->%8x %3s %3s\n", 
           k->addr,
           k->section,
@@ -62,6 +64,6 @@ int main(int argc, char** argv) {
           k->jump.conditional ? "YES" : " NO",
           k->jump.direct ? "YES" : " NO");
     }
-#endif
+#endif */
     return 0;
 }
