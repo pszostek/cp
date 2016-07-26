@@ -4,10 +4,10 @@ tests:
 	$(MAKE) -C tests
 
 _xed.so: xed_disass.c xed_wrap.cxx xed_disass.h
-	g++ -fPIC xed_disass.c xed_wrap.cxx xed_bb_chop.cxx -I/usr/include/python2.6 -I. -I.. -I../include -L../../lib -lxed -shared -o _xed.so
+	g++ -std=c++11 -fPIC xed_disass.c xed_wrap.cxx xed_bb_chop.cxx -I/usr/include/python2.6 -I/usr/include/python2.7 -I. -I.. -I../include -L../../lib -lxed -shared -o _xed.so
 
 xed_wrap.cxx xed.py: xed.i
-	swig -I.. -I../include -Dinline= -Wall -classic -python -c++ xed.i	 
+	swig -I.. -I../include -Dinline= -Wall -python -c++ xed.i	 
 
 xed-ex1: xed-ex1.o
 	g++  -fopenmp  -o xed-ex1 xed-ex1.c ../lib/libxed.a

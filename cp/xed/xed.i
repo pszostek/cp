@@ -7,7 +7,7 @@
 %include "typemaps.i"
 %include "cstring.i"
 //http://www.swig.org/Doc1.3/Library.html#Library_stl_cpp_library
-%include "std_list.i"
+%include "std_vector.i"
 
 
 
@@ -124,7 +124,9 @@
 %include "xed_bb_chop.h"
 
 namespace std {
-   %template(bbslist) list<bb_t>;
+   %template(bbvector) vector<bb_t>;
+   %template(uint64vector) vector<uint64_t>;
+   //%template(bbslist) list<bb_t>;
 };
 
 %array_class(char, bytesArray)
