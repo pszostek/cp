@@ -80,11 +80,10 @@ static uint64_t get_binary_base(char* elf_data) {
 }
 
 static void get_symbols_info(char* elf_data, std::vector<uint64_t>& elf_symbol_bases, std::vector<uint64_t>& elf_symbol_sizes) {
-    Elf64_Ehdr *elf_hdr;
-    Elf64_Shdr *elf_shdr;
+    Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
+    Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
-    elf_hdr = (Elf64_Ehdr *)elf_data;
-    elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+    char * strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     uint32_t symtab_entries = get_number_of_symbols(elf_data, symtab_section_idx);
@@ -171,12 +170,12 @@ static void get_sections_info(char* elf_data, std::vector<uint64_t>& elf_section
             elf_section_sizes[INIT] = elf_shdr[i].sh_size;      
         }        
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".fini")) {
-            elf_section_bases[FINI] = elf_shdr[i].sh_offset;        
+            elf_section_bases[FINI] = elf_shdr[i].sh_offset;
             elf_section_sizes[FINI] = elf_shdr[i].sh_size;        
         }        
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".plt")) {
-            elf_section_bases[PLT] = elf_shdr[i].sh_offset;        
-            elf_section_sizes[PLT] = elf_shdr[i].sh_size;        
+            elf_section_bases[PLT] = elf_shdr[i].sh_offset;
+            elf_section_sizes[PLT] = elf_shdr[i].sh_size;     
         }  
     }
 }
