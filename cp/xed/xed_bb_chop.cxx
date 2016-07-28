@@ -198,10 +198,11 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
 
     get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
 
-    for(unsigned secidx = TEXT; secidx < PLT; ++secidx) {
+    for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         addrs.insert(elf_section_bases[secidx]);
-        addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] + 1);
+        addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
     }
+    uint64_t binary_base = get_binary_base(elf_data);
 
     int16_t symtab_idx = get_symtab_idx(elf_data);
     uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
@@ -210,9 +211,11 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
 
     get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes);
 
-    for(unsigned symidx = TEXT; symidx < PLT; ++symidx) {
-        addrs.insert(elf_symbol_bases[symidx]);
-        addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] + 1);
+    for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
+        if(elf_symbol_sizes[symidx] > 0) {
+            addrs.insert(elf_symbol_bases[symidx] - binary_base);
+            addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base + 1);
+        }
     }
 
     uint64_t jump_addr = 0;
