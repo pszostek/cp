@@ -58,6 +58,27 @@ static inline Elf64_Shdr *elf_section(Elf64_Ehdr *hdr, int idx) {
         return &elf_sheader(hdr)[idx];
 }
 
+static uint64_t get_binary_base(char* elf_data) {
+        /*
+        def _get_binary_base(self):
+            for segment in self.iter_segments():
+                if segment['p_type'] == "PT_LOAD" and segment['p_offset'] == 0:
+                     return segment['p_vaddr']
+            raise ELFFileError("Can't find base for the .text segment")
+            */
+    Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
+    Elf64_Phdr *p_hdr = (Elf64_Phdr *)(elf_data + elf_hdr->e_phoff);
+    uint64_t ret = 0UL;
+    for(unsigned ph_idx = 0; ph_idx < elf_hdr->e_phnum; ++ph_idx) {
+        if(p_hdr[ph_idx].p_type == PT_LOAD && p_hdr[ph_idx].p_offset == 0) {
+            ret = p_hdr[ph_idx].p_vaddr;
+            break;
+        }
+    }
+    return ret; 
+
+}
+
 static void get_symbols_info(char* elf_data, std::vector<uint64_t>& elf_symbol_bases, std::vector<uint64_t>& elf_symbol_sizes) {
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
