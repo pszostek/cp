@@ -200,7 +200,13 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
 
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         addrs.insert(elf_section_bases[secidx]);
+#ifdef DEBUG
+        printf("sec start 0x%x", elf_section_bases[secidx]);
+#endif
         addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
+#ifdef DEBUG
+        printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
+#endif
     }
     uint64_t binary_base = get_binary_base(elf_data);
 
@@ -214,7 +220,13 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
     for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
         if(elf_symbol_sizes[symidx] > 0) {
             addrs.insert(elf_symbol_bases[symidx] - binary_base);
-            addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base + 1);
+#ifdef DEBUG
+            printf("sym start 0x%x\n", elf_symbol_bases[symidx] - binary_base);
+#endif
+            addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
+#ifdef DEBUG
+            printf("sym end 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
+#endif
         }
     }
 
