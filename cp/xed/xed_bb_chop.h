@@ -22,10 +22,10 @@ extern "C" {
 #ifndef _XED_BB_CHOP_
 #define _XED_BB_CHOP_
 
-typedef enum {PLT,
-              INIT,
-              FINI,
+typedef enum {INIT,
+              PLT,
               TEXT,
+              FINI,
               NUMBER_OF_SECTIONS} ELF_SECTION;
 
 typedef struct {
