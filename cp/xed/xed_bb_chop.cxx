@@ -30,7 +30,7 @@ static inline int32_t get_symtab_idx(char* elf_data) {
     elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
 #ifdef VERBOSE
-    printf("\t%-25s %-16s %-s\n", "Name", "offset", "size");
+    printf("\t%-25s %-16s %-s\n", "Symbol name", "offset", "size");
 #endif
     int32_t ret = -1;
     for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
@@ -92,6 +92,10 @@ static void get_symbols_info(char* elf_data, std::vector<uint64_t>& elf_symbol_b
     Elf64_Shdr* symtab = &elf_shdr[symtab_section_idx]; 
     Elf64_Sym* symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
+#ifdef DEBUG
+    printf("\t%-25s %-16s %-s\n", "Symbol name", "offset", "size");
+#endif
+
     for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
         Elf64_Sym *symbol = &(symtab_addr[symidx]);
         if(ELF64_ST_TYPE(symbol->st_info) != STT_FUNC) //omit non-function entries
@@ -127,6 +131,12 @@ static void get_symbols_info(char* elf_data, std::vector<uint64_t>& elf_symbol_b
                 continue;
             elf_symbol_bases[symidx] = symbol->st_value;;
             elf_symbol_sizes[symidx] = symbol->st_size;
+#ifdef DEBUG
+            printf("\t%d %-25s 0x%-14lx %-ld\n",
+                &strtab[symbol->st_name],
+                symbol->st_value,
+                symbol->st_size);
+#endif
         }
     }
 }
@@ -142,7 +152,7 @@ static void get_sections_info(char* elf_data, std::vector<uint64_t>& elf_section
     strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
 
 #ifdef DEBUG
-    printf("\t%-25s %-16s %-s\n", "Name", "offset", "size");
+    printf("\t%-25s %-16s %-s\n", "Section name", "offset", "size");
 #endif
 
     for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
@@ -387,8 +397,8 @@ std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize)
     int num_bbs = ctr;
 
 #ifdef DEBUG
-    printf("\nGathered %d jumps\n", num_jumps);
-    for(k=0; k<num_jumps; k++) printf("\t0x%x->0x%x\n", jumps[k].addr, jumps[k].target);
+    printf("\nGathered %d jumps\n", jumps_count);
+    for(k=0; k<jumps_count; k++) printf("\t0x%x->0x%x\n", jumps[k].addr, jumps[k].target);
 #endif
 
     int n = 0;
