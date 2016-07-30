@@ -1,26 +1,36 @@
 #!/usr/bin/env python
 
-from xed import xed
+from ..xed import xed
 import elffile as elffile_mod
 import addr2line
 
 def bytes_to_string(bytes):
     return ' '.join(map(lambda x: '%02x' % ord(x), bytes))
 
-def disassemble_x86(data, base=0):
+def disassemble_x86(data, base=0, length=None):
     assert isinstance(data, basestring)
     base = long(base)
+    if length is None:
+        length = len(data) - base
     return xed._disassemble_x86(data, base)
 
-def disassemble_x64(data, base=0):
+def disassemble_x64(data, base=0, length=None):
     assert isinstance(data, basestring)
     base = long(base)
-    return xed._disassemble_x64(data, base)
+    if length is None:
+        length = len(data) - base
+    return xed._disassemble_x64(data, length, base)
 
-def disassemble_x64_until_bb_end(data, base=0):
+def disassemble_x64_until_bb_end(data, length=None, base=None):
+    if base is None:
+        base = long(0)
+    else:
+        base = long(base)
+
+    if length is None:
+        length = long(len(data))
     assert isinstance(data, basestring)
-    base = long(base)
-    return xed._disassemble_x64_until_bb_end(data, base)
+    return xed._disassemble_x64_until_bb_end(data, length, base)
 
 def get_source_location(bb_dict):
     """ Function that looks for provenance of instruction under given addresses
@@ -55,10 +65,10 @@ def get_disassembly_for_basic_blocks(bb_dict):
     bb_dict: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
     returns a pandas.DataFrame containing disassembly in rows and indexed by DSO path and BB offset
         for instance:
-                                  disassembly 
-dso_name  bb_offset inst_offset                                          
-libc.so.6 312       0                   1    
-                    1                   3   
+                                  disassembly
+        dso_name  bb_offset inst_offset
+        libc.so.6 312       0                   1
+                    1                   3
 
     """
     assert isinstance(bb_dict, dict)
@@ -93,17 +103,17 @@ libc.so.6 312       0                   1
 def get_inst_lists_for_basic_blocks(bb_dict):
     """ Function that disassembles basic blocks at given offsets
 
-    bb_dict: a dictionary containing pairs of DSO paths and lists of offsets to be disassembled
+    bb_dict: a dictionary containing pairs of DSO paths and lists of (from_addres, to_addres)  to be disassembled
     returns a pandas.DataFrame containing disassembled instructions in rows and indexed by DSO path and BB offset
         for instance:
-                                  inst_length   XED_ICLASS  XED_ISA_SET  XED_CATEGORY 
-dso_name  bb_offset inst_offset                                          
-libc.so.6 312       0                   1           1           1             6   
-                    1                   3           0           5             2   
-                    4                   4           23          7             3   
-                    6                   3           43          3             7   
-                    7                   3           54          4             8   
-                    3                   4           56          2             9 
+                                  inst_length   XED_ICLASS  XED_ISA_SET  XED_CATEGORY
+dso_name  symbol bb_offset inst_offset
+libc.so.6 symname   312       0                   1           1           1             6
+                              1                   3           0           5             2
+                              4                   4           23          7             3
+                              6                   3           43          3             7
+                              7                   3           54          4             8
+                              3                   4           56          2             9
     """
     assert isinstance(bb_dict, dict)
     from collections import namedtuple
@@ -112,21 +122,25 @@ libc.so.6 312       0                   1           1           1             6
     result_list = []
     prev_dso_path = None
     index_tuples = []
-    for dso_path, offset_list in bb_dict.items():
+    for dso_path, addrs_list in bb_dict.items():
         if prev_dso_path != dso_path:
             elffile = elffile_mod.ELFFile(dso_path)
-        for bb_offset in offset_list:
-            bb = get_basic_block(elffile, bb_offset)
+        for from_addr, to_addr in addrs_list:
+            bb = get_basic_block(elffile, from_addr, to_addr)
             offset_inside_bb = 0
+            symbol = elffile.get_symbol_by_offset(from_addr)
+
             for inst in bb:
+                mnemonic = inst.get_mnemonic_intel()
                 inst_length = inst.get_length()
-                noperands = xed.xed_decoded_inst_noperands(inst)
-                unaligned = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_UNALIGNED)
-                simd_scalar = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_SCALAR)
-                packed_alignment = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_PACKED_ALIGNMENT)
-                gather = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_GATHER)
-                prefetch = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_PREFETCH)
-                scalable = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SCALABLE)
+                #noperands = xed.xed_decoded_inst_noperands(inst)
+                noperands = inst.get_number_of_operands()
+                #unaligned = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_UNALIGNED)
+                #simd_scalar = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_SCALAR)
+                #packed_alignment = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_PACKED_ALIGNMENT)
+                #gather = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_GATHER)
+                #prefetch = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_PREFETCH)
+                #scalable = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SCALABLE)
 
                 inst_inst = xed.xed_decoded_inst_inst(inst)
                 operands = []
@@ -142,20 +156,22 @@ libc.so.6 312       0                   1           1           1             6
                                      elem=xed.xed_operand_element_type_enum_t2str(xed.xed_decoded_inst_operand_element_type(inst, idx)))
                         operands.append(op)
                 index_tuples.append((dso_path,
-                                    bb_offset,
+                                    symbol,
+                                    from_addr,
                                     offset_inside_bb))
-                result_list.append((inst_length,
+                result_list.append((mnemonic,
+                                    inst_length,
                                     inst.get_iclass(),
                                     inst.get_isa_set(),
                                     inst.get_category(),
                                     inst.get_extension(),
                                     noperands,
-                                    unaligned,
-                                    simd_scalar,
-                                    packed_alignment,
-                                    gather,
-                                    prefetch,
-                                    scalable,
+                                    #unaligned,
+                                    #simd_scalar,
+                                    #packed_alignment,
+                                    #gather,
+                                    #prefetch,
+                                    #scalable,
                                     operands[0].type,
                                     operands[0].width,
                                     operands[0].name,
@@ -170,23 +186,25 @@ libc.so.6 312       0                   1           1           1             6
         prev_dso_path = dso_path
 
     index = pd.MultiIndex.from_tuples(index_tuples, names=['dso_path',
+                                                           'symbol',
                                                            'bb_offset',
                                                            'inst_offset'])
 
     ret_data_frame = pd.DataFrame(result_list,
                                   index=index,
-                                  columns=['inst_length',
+                                  columns=['mnemonic',
+                                           'inst_length',
                                            'XED_ICLASS',
                                            'XED_ISA_SET',
                                            'XED_CATEGORY',
                                            'XED_EXTENSION',
                                            'noperands',
-                                           'unaligned',
-                                           'simd_scalar',
-                                           'packed_alignment',
-                                           'gather',
-                                           'prefetch',
-                                           'scalable',
+                                           #'unaligned',
+                                           #'simd_scalar',
+                                           #'packed_alignment',
+                                           #'gather',
+                                           #'prefetch',
+                                           #'scalable',
                                            'op0.type',
                                            'op0.width',
                                            'op0.name',
@@ -200,7 +218,7 @@ libc.so.6 312       0                   1           1           1             6
     return ret_data_frame
 
 
-def get_basic_block(module, offset):
+def get_basic_block(module, offset, to=None):
     assert isinstance(module, elffile_mod.ELFFile)
    # assert isinstance(offset, int)
     fd = module._fd
@@ -210,18 +228,23 @@ def get_basic_block(module, offset):
     section_size = section.header['sh_size']
     section_end = section_size + section_offset
 
-    chunk_size = 64 
+    chunk_size = 64
     while True:
         fd.seek(offset)
         bytes = fd.read(chunk_size)
-        bb = disassemble_x64_until_bb_end(bytes, base=offset)
+        if to is None:
+            length = len(bytes) - offset
+        else:
+            length =  to - offset
+        #bb = disassemble_x64_until_bb_end(bytes, length=length, base=offset)
+        bb = disassemble_x64(bytes, length=length, base=offset)
        # print('base %d, ifbb %d' % (bb.base, bb.is_finished_by_branch()))
         if bb.size == 0:
             chunk_size *= 2
-        elif not bb.is_finished_by_branch():
-            chunk_size += 2
+        #elif not bb.is_finished_by_branch():
+        #    chunk_size += 2
         else:
-            return bb 
+            return bb
 
     # ret = xed.inst_list_t()
     # while cur < section_end:
@@ -235,11 +258,14 @@ def get_basic_block(module, offset):
     #     cur += chunk_size
     # return ret
 
-def get_basic_blocks(module, offset_list):
+def get_basic_blocks(module, from_addr, to_addr):
     #assert isinstance(offset_list, collections.Iterable), "Expected an iterable object, got %s" % type(offset_list)
     ret = []
-    for offset in offset_list:
-        ret.append(get_basic_block(module, offset))
+    cur_start = from_addr
+    while cur_start < to_addr:
+        bb = get_basic_block(module, cur_start)
+        ret.append(bb)
+        cur_start = bb.size
     return ret
 
 if __name__ == "__main__":

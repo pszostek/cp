@@ -14,10 +14,12 @@ extern "C" {
 #include <sys/mman.h>
 #include <cstddef>
 #include <sys/types.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <vector>
 #endif
 
+//typedef unsigned long long uint64_t;
+//typedef unsigned uint32_t;
 
 #ifndef _XED_BB_CHOP_
 #define _XED_BB_CHOP_
@@ -44,7 +46,7 @@ typedef struct {
   jump_t jump;
 } bb_t;
 
-std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize);
+std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize);
 std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize);
 std::vector<int> test();
 

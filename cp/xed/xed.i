@@ -10,8 +10,6 @@
 %include "std_vector.i"
 
 
-
-
 // for functions like void dump(char* buf, int buflen)
 // this allows to omit the first argument and to return
 // a Python-string instead of a null
@@ -19,7 +17,16 @@
 
 // http://www.swig.org/Doc1.3/Library.html#Library_nn10
 %apply (char* STRING, size_t LENGTH) { (char* elf_data, size_t fsize)};
-%typemap(in) (char* data, unsigned int length) {
+/*%typemap(in) (char* data, unsigned int length) {
+  if (!PyString_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a string");
+    return NULL;
+  }
+  $1 = PyString_AsString($input);
+  $2 = PyString_Size($input);
+}*/
+/*
+%typemap(in) (char* elf_data, unsigned int fsize, unsigned base) {
   if (!PyString_Check($input)) {
     PyErr_SetString(PyExc_ValueError, "Expecting a string");
     return NULL;
@@ -27,27 +34,17 @@
   $1 = PyString_AsString($input);
   $2 = PyString_Size($input);
 }
-
-%typemap(in) (char* elf_data, unsigned int fsize) {
-  if (!PyString_Check($input)) {
-    PyErr_SetString(PyExc_ValueError, "Expecting a string");
-    return NULL;
-  }
-  $1 = PyString_AsString($input);
-  $2 = PyString_Size($input);
-}
-
+*/
 %{
     #include <assert.h>
     #include "xed_disass.h"
     #include "xed_bb_chop.h"
-    extern inst_list_t* _disassemble_x86(char* data, unsigned int length, uint64_t base);
-    extern inst_list_t* _disassemble_x64(char* data, unsigned int length, uint64_t base);
-    extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int lengt, uint64_t base);
-
-    extern inst_list_t* _disassemble_x86_until_bb_end(char* data, unsigned int length, uint64_t base);
-    extern inst_list_t* _disassemble_x64_until_bb_end(char* data, unsigned int length, uint64_t base);
-    extern inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned int length, uint64_t base);
+    extern inst_list_t* _disassemble_x86(char* data, unsigned length, unsigned base);
+    extern inst_list_t* _disassemble_x64(char* data, unsigned length, unsigned base);
+    extern inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned length, unsigned base);
+    extern inst_list_t* _disassemble_x86_until_bb_end(char* data, unsigned length, unsigned base);
+    extern inst_list_t* _disassemble_x64_until_bb_end(char* data, unsigned length, unsigned base);
+    extern inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned length, unsigned base);
 
     static int iter_error = 0;
 %}
@@ -125,7 +122,8 @@
 
 namespace std {
    %template(bbvector) vector<bb_t>;
-   %template(uint64vector) vector<uint64_t>;
+   %template(intvector) vector<int>;
+   %template(uintvector) vector<unsigned>;
    //%template(bbslist) list<bb_t>;
 };
 

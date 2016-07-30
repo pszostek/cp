@@ -191,7 +191,7 @@ class ELFFile(ELFFile_):
         return symtab
 
     def _iter_func(self, symbols_iter=None):
-        from demangle import demangle
+        from ..demangle import demangle
         if symbols_iter is None:
             symtab = self._get_symbol_table()
             symbols_iter = symtab.iter_symbols()
