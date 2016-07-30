@@ -19,7 +19,7 @@ void inst_list_init_size(inst_list_t* inst_list, size_t initial_size) {
   inst_list->size = 0;
 }
 
-void inst_list_init(inst_list_t* inst_list, uint64_t base) {
+void inst_list_init(inst_list_t* inst_list, unsigned long long base) {
   inst_list->base = base;
   return inst_list_init_size(inst_list, INST_LIST_INIT_CAPACITY);
 }
@@ -86,7 +86,7 @@ void inst_list_delete(inst_list_t* inst_list) {
 //  free(inst_list);
 }
 
-inst_list_t* _disassemble_x64(char* data, unsigned int length, uint64_t base) {
+inst_list_t* _disassemble_x64(char* data, unsigned length, unsigned base) {
     xed_state_t dstate;
     xed_state_zero(&dstate);
     xed_state_init(&dstate,
@@ -96,7 +96,7 @@ inst_list_t* _disassemble_x64(char* data, unsigned int length, uint64_t base) {
     return _disassemble(dstate, data, length, base);
 }
 
-inst_list_t* _disassemble_x86(char* data, unsigned int length, uint64_t base) {
+inst_list_t* _disassemble_x86(char* data, unsigned length, unsigned base) {
     xed_state_t dstate;
     xed_state_zero(&dstate);
     xed_state_init(&dstate,
@@ -106,13 +106,13 @@ inst_list_t* _disassemble_x86(char* data, unsigned int length, uint64_t base) {
     return _disassemble(dstate, data, length, base);
 }
 
-inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int length, uint64_t base) {
+inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned length, unsigned base) {
      
 
     xed_tables_init();
 
-    uint32_t start = 0, stop = 1;
-    uint32_t inst_count = 0;
+    unsigned start = 0, stop = 1;
+    unsigned inst_count = 0;
     inst_list_t* ret = (inst_list_t*) malloc(sizeof(inst_list_t));
     inst_list_init(ret, base);
 
@@ -140,7 +140,7 @@ inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned int length
   return ret;
 }
 
-inst_list_t* _disassemble_x86_until_bb_end(char* data, unsigned int length, uint64_t base) {
+inst_list_t* _disassemble_x86_until_bb_end(char* data, unsigned length, unsigned base) {
     xed_state_t dstate;
     xed_state_zero(&dstate);
     xed_state_init(&dstate,
@@ -150,7 +150,7 @@ inst_list_t* _disassemble_x86_until_bb_end(char* data, unsigned int length, uint
     return _disassemble_until_bb_end(dstate, data, length, base);
 }
 
-inst_list_t* _disassemble_x64_until_bb_end(char* data, unsigned int length, uint64_t base) {
+inst_list_t* _disassemble_x64_until_bb_end(char* data, unsigned length, unsigned base) {
     xed_state_t dstate;
     xed_state_zero(&dstate);
     xed_state_init(&dstate,
@@ -160,7 +160,7 @@ inst_list_t* _disassemble_x64_until_bb_end(char* data, unsigned int length, uint
     return _disassemble_until_bb_end(dstate, data, length, base);
 }
 
-inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned int length, uint64_t base) {
+inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsigned length, unsigned base) {
    // xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t)); 
 
     xed_tables_init();
@@ -168,7 +168,7 @@ inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsign
     inst_list_t* ret = (inst_list_t*) malloc(sizeof(inst_list_t));
     inst_list_init(ret, base);
     xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
-    uint32_t offset = 0;
+    unsigned offset = 0;
 
     while(length-offset > 0) {
         xed_decoded_inst_zero_set_mode(xedd, &xed_state);

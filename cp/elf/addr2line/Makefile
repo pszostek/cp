@@ -98,8 +98,8 @@ else
   LDFLAGS  = /nologo
 endif
 ###################################################################
-CXXFLAGS += $(IOPT)../../include 
-CCFLAGS  += $(IOPT)../../include
+CXXFLAGS += $(IOPT)../../include $(IOPT)/usr/include/libdwarf
+CCFLAGS  += $(IOPT)../../include $(IOPT)/usr/include/libdwarf
 LIBXED   = ../../../lib/libxed.${LIBEXT}
 EXTRA_LDLIBS_TARGET = -ldwarf -lelf -lpthread
 ###################################################################
@@ -162,7 +162,7 @@ fast_addr2line${EXEEXT}: ${XED_OBJ2} fast_addr2line.${OBJEXT} ${LIBXED}
 addr2line_python: _addr2line.so addr2line.py
 
 _addr2line.so: addr2line_wrap.cxx fast_addr2line.o ${XED_OBJ}
-	g++ -fPIC $^ -I/usr/include/python2.7 -L../../pin-example/lib -L../../../lib -ldwarf -lelf -lxed -I../../include -shared -o $@
+	g++ -fPIC $^ -I/usr/include/python2.7 -I/usr/include/python2.6 -L../../pin-example/lib -L../../../lib -ldwarf -lelf -lxed -I../../include -shared -o $@
 
 addr2line.py addr2line_wrap.cxx: addr2line.i fast_addr2line.h
 	swig -c++ -Dinline= -Wall -python $< 

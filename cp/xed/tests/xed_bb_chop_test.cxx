@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    std::vector<uint64_t> addrs = new_detect_static_basic_blocks(elf_data, newLen);
+    std::vector<unsigned long> addrs = new_detect_static_basic_blocks(elf_data, newLen);
     cout << addrs.size() << endl;
     for(auto i: addrs)
         printf("0x%x\n", i);

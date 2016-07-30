@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include "xed_disass.h"
 #include "xed-category-enum.h"
 #include "xed_bb_chop.h"
@@ -61,7 +61,7 @@ static inline Elf64_Shdr *elf_section(Elf64_Ehdr *hdr, int idx) {
         return &elf_sheader(hdr)[idx];
 }
 
-static uint64_t get_binary_base(char* elf_data) {
+static unsigned long long get_binary_base(char* elf_data) {
         /*
         def _get_binary_base(self):
             for segment in self.iter_segments():
@@ -71,7 +71,7 @@ static uint64_t get_binary_base(char* elf_data) {
             */
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Phdr *p_hdr = (Elf64_Phdr *)(elf_data + elf_hdr->e_phoff);
-    uint64_t ret = 0UL;
+    unsigned long long ret = 0UL;
     for(unsigned ph_idx = 0; ph_idx < elf_hdr->e_phnum; ++ph_idx) {
         if(p_hdr[ph_idx].p_type == PT_LOAD && p_hdr[ph_idx].p_offset == 0) {
             ret = p_hdr[ph_idx].p_vaddr;
@@ -82,7 +82,7 @@ static uint64_t get_binary_base(char* elf_data) {
 
 }
 
-static void get_symbols_info(char* elf_data, std::vector<uint64_t>& elf_symbol_bases, std::vector<uint64_t>& elf_symbol_sizes) {
+static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& elf_symbol_bases, std::vector<unsigned long long>& elf_symbol_sizes) {
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
@@ -143,7 +143,7 @@ static void get_symbols_info(char* elf_data, std::vector<uint64_t>& elf_symbol_b
     }
 }
 
-static void get_sections_info(char* elf_data, std::vector<uint64_t>& elf_section_bases, std::vector<uint64_t>& elf_section_sizes) {
+static void get_sections_info(char* elf_data, std::vector<unsigned long long>& elf_section_bases, std::vector<unsigned long long>& elf_section_sizes) {
     // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -193,11 +193,11 @@ static void get_sections_info(char* elf_data, std::vector<uint64_t>& elf_section
  *    * destination addresses of jump instructions
  */
 
-std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize) {
-    std::unordered_set<uint64_t> addrs; //this set will keep all the starting addresses of BB
+std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize) {
+    std::unordered_set<unsigned long long> addrs; //this set will keep all the starting addresses of BB
 
-    std::vector<uint64_t> elf_section_bases(NUMBER_OF_SECTIONS, 0);
-    std::vector<uint64_t> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_bases(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
 
     get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
 
@@ -211,12 +211,12 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
         printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
 #endif
     }
-    uint64_t binary_base = get_binary_base(elf_data);
+    unsigned long long binary_base = get_binary_base(elf_data);
 
     int16_t symtab_idx = get_symtab_idx(elf_data);
     uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
-    std::vector<uint64_t> elf_symbol_bases(number_of_symbols, 0UL);
-    std::vector<uint64_t> elf_symbol_sizes(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_bases(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
 
     get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes);
 
@@ -233,7 +233,7 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
         }
     }
 
-    uint64_t jump_addr = 0;
+    unsigned long long jump_addr = 0;
     char cur_inst_len;
 
     xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
@@ -248,9 +248,9 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
     xed_tables_init();
 
     for(char section=0; section < NUMBER_OF_SECTIONS; ++section) {
-        uint64_t section_base = elf_section_bases[section];
-        uint64_t decode_window_start = section_base;
-        uint64_t section_len = elf_section_sizes[section];
+        unsigned long long section_base = elf_section_bases[section];
+        unsigned long long decode_window_start = section_base;
+        unsigned long long section_len = elf_section_sizes[section];
         
         while(decode_window_start < section_base+section_len) { //decode the whole section
           xed_decoded_inst_zero_set_mode(xedd, &dstate);
@@ -293,7 +293,7 @@ std::vector<uint64_t> new_detect_static_basic_blocks(char* elf_data, unsigned in
           } //switch 
         } //while
     }
-    std::vector<uint64_t> ret(addrs.size());
+    std::vector<unsigned long> ret(addrs.size());
     std::copy(addrs.begin(), addrs.end(), ret.begin());
     sort(ret.begin(), ret.end());
     return ret;
@@ -306,18 +306,18 @@ std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize)
     size_t file_length;
 
     bb_t* bbs = (bb_t*) calloc(sizeof(bb_t), fsize/4); 
-    std::unordered_map<uint64_t, bb_t> bbs_map; 
+    std::unordered_map<unsigned long long, bb_t> bbs_map; 
     jump_t *jumps = (jump_t*) calloc(sizeof(jump_t), fsize/4);
     //uint16_t *ilens = (uint16_t*) calloc(sizeof(uint16_t), fsize);
-    std::unordered_map<uint64_t, uint16_t> ilens;
-    //map<uint64_t, uint16_t> ilens;
+    std::unordered_map<unsigned long long, uint16_t> ilens;
+    //map<unsigned long long, uint16_t> ilens;
 
-    std::vector<uint64_t> elf_section_bases(NUMBER_OF_SECTIONS, 0);
-    std::vector<uint64_t> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_bases(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
 
     get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
 
-    uint64_t jump_addr = 0;
+    unsigned long long jump_addr = 0;
     char cur_inst_len;
     int bb_count = 0, jumps_count = 0;
 
@@ -334,7 +334,7 @@ std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize)
 
    // for(char section=0; section < NUMBER_OF_SECTIONS; ++section) {
     for(char section=TEXT; section < NUMBER_OF_SECTIONS; ++section) {
-        uint64_t section_base = elf_section_bases[section],
+        unsigned long long section_base = elf_section_bases[section],
             decode_window_start = section_base,
             section_len = elf_section_sizes[section];
 

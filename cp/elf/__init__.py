@@ -1,4 +1,4 @@
 #!/usr/bin/env python
 
-import elffile
+from elffile import ELFFile
 import pyelftools
