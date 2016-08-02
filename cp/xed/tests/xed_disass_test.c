@@ -7,6 +7,11 @@ int main(int argc, char** argv) {
     size_t file_length;
     char line[64];
     size_t idx;
+
+    if (argc != 2)
+      perror("You must supply exactly one argument, which is the file to disassemble. Exiting.\n");
+      return -1;
+
     FILE* fp = fopen(argv[1], "r");
     if(fp != NULL) {
       fseek(fp, 0, SEEK_END);
@@ -22,7 +27,7 @@ int main(int argc, char** argv) {
       }
       fclose(fp);
     } else {
-      printf("can't open file\n");
+      printf("can't open file named \"%s\". Exiting.\n", argv[1]);
       return 1;
     }
     inst_list_t* list = _disassemble_x64_until_bb_end(buf, file_length, 0);
