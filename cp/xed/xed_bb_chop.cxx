@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define DEBUG
+//#define DEBUG
 //#define VERBOSE
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15
@@ -302,8 +302,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                        char* buffer = (char*) malloc(512);
                         xed_decoded_inst_dump(xedd, buffer, 512);
                         printf("%s\n", buffer);
+                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
                       }
-                      printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
 #endif
                       addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
                       end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
