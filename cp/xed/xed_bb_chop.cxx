@@ -83,21 +83,25 @@ static unsigned long long get_binary_base(char* elf_data) {
 }
 
 static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& elf_symbol_bases, std::vector<unsigned long long>& elf_symbol_sizes) {
+    #ifdef DEBUG
+    printf("Get Symbols Info called: elf_data@0x%x, elf_symbol_bases@0x%x, elf_symbol_sizes@0x%x\n", elf_data, elf_symbol_bases, elf_symbol_sizes);
+    #endif
+    
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
-    char * strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
+    char *strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     uint32_t symtab_entries = get_number_of_symbols(elf_data, symtab_section_idx);
 
     // AN: todo: this crashes on ls, presumably there is a symtab missing or something and we don't take it into account
-    Elf64_Shdr* symtab = &elf_shdr[symtab_section_idx]; 
-    Elf64_Sym* symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
+    Elf64_Shdr *symtab = &elf_shdr[symtab_section_idx]; 
+    Elf64_Sym *symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
-#ifdef DEBUG
+    #ifdef DEBUG
     printf("\t%-25s %-16s %-s\n", "Symbol name", "offset", "size");
-#endif
+    #endif
 
     for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
         Elf64_Sym *symbol = &(symtab_addr[symidx]);
