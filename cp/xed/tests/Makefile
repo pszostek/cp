@@ -7,7 +7,7 @@ xed_bb_chop_test: ../xed_bb_chop.cxx ../xed_disass.h ../xed_bb_chop.h xed_bb_cho
 		g++ -O3 -std=c++11 -ftree-vectorize -g ../xed_disass.c ../xed_bb_chop.cxx xed_bb_chop_test.cxx -I.. -I../../include -L../../../lib -lxed -o xed_bb_chop_test
 
 xed_bb_chop_test2: ../xed_bb_chop.cxx ../xed_disass.h ../xed_bb_chop.h xed_bb_chop_test2.cxx ../xed_disass.c
-		g++ -O3 -std=c++11 -ftree-vectorize -g ../xed_disass.c ../xed_bb_chop.cxx xed_bb_chop_test2.cxx -I.. -I../../include -L../../../lib -lxed -o xed_bb_chop_test2
+		g++ -ggdb -std=c++11 -ftree-vectorize -g ../xed_disass.c ../xed_bb_chop.cxx xed_bb_chop_test2.cxx -I.. -I../../include -L../../../lib -lxed -o xed_bb_chop_test2
 
 .PHONY: clean
 

@@ -91,6 +91,7 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     uint32_t symtab_entries = get_number_of_symbols(elf_data, symtab_section_idx);
 
+    // AN: todo: this crashes on ls, presumably there is a symtab missing or something and we don't take it into account
     Elf64_Shdr* symtab = &elf_shdr[symtab_section_idx]; 
     Elf64_Sym* symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
@@ -197,6 +198,10 @@ static void get_sections_info(char* elf_data, std::vector<unsigned long long>& e
  *    * last byte of a symbol
  *    * addresses of jump instructions + len(jump instructio) - 1
  *    * destination addreses of jump instrictions - 1
+ *  Ways to detect screwups:
+ *    - look for 0 sized blocks (,0$)
+ *    - look for very long blocks (visually)
+ *    - look for blocks where either address is 0 (0x0,)
  */
 
 std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned int fsize) {
@@ -318,7 +323,6 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
 //    std::vector<bbnowak_t> ret_blocks(std::max(addrs.size(), end_addrs.size()));
     std::vector<bbnowak_t> ret_blocks;
-    printf("MAX %d, SIZE %d\n", std::max(addrs.size(), end_addrs.size()), ret_blocks.size());
 //    printf("Captured %d start addresses, %d end addresses\n", ret.size(), end_ret.size());
     int i=0, j=0, ret_s = ret.size(), end_ret_s = end_ret.size();
     unsigned long long sa = -1, ea = -1, sa_next = -1;
@@ -337,7 +341,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         j++;
         ea = end_ret[j];
       };
-      ret_blocks.push_back(*current_bb);
+      ret_blocks.push_back(*current_bb); // WHATEVER
       i++;
     }
 //    printf("\n\n");
