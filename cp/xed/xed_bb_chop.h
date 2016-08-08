@@ -31,25 +31,25 @@ typedef enum {INIT,
               NUMBER_OF_SECTIONS} ELF_SECTION;
 
 typedef struct {
-  uint32_t addr;
-  uint32_t target;
+  uint64_t addr;
+  uint64_t target;
   char direct;
   char conditional;
   char isjump;
 } jump_t;
 
 typedef struct {
-  uint32_t addr;
-  uint16_t ilen;
-  uint16_t len;
+  uint64_t addr;
+  uint32_t ilen;
+  uint32_t len;
   ELF_SECTION section;
   jump_t jump;
 } bb_t;
 
 typedef struct {
-  uint32_t start;
-  uint16_t len;
-  uint32_t end;
+  uint64_t start;
+  uint32_t len;
+  uint64_t end;
 } bbnowak_t;
 
 std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize);

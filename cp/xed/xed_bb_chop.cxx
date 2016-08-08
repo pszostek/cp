@@ -222,6 +222,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
 	end_addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);
 #ifdef DEBUG
+        printf("[sec] S 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx]);
+        printf("[sec] E 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);            
 	if (elf_section_bases[secidx] + elf_section_sizes[secidx] - 1 == 0x108c0) printf("POINT1: ins\n");
         printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
 #endif
@@ -245,6 +247,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
             addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
             end_addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
 #ifdef DEBUG
+            printf("[sym] S 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);     
+            printf("[sym] E 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
             if (elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
             printf("sym end 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
 #endif
@@ -334,6 +338,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     ea = end_ret[j];
     while(i < (ret_s-1)) {
       bbnowak_t *current_bb = new bbnowak_t;
+      current_bb->start = 0; current_bb->end = 0; current_bb->len = 0;
       sa = ret[i];
       sa_next = ret[i+1];
 //      printf("\n0x%x,", sa);
@@ -341,7 +346,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
       while(ea < sa_next && j < end_ret_s) {
 //        printf("0x%x,%d,", ea, ea-sa);
         current_bb->end = ea;
-        current_bb->len = ea-sa+1;
+        current_bb->len = ea == 0 ? 0 : ea-sa+1;
         j++;
         ea = end_ret[j];
       };
