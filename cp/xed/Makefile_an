@@ -4,7 +4,7 @@ tests:
 	$(MAKE) -C tests
 
 _xed.so: xed_disass.c xed_wrap.cxx xed_disass.h
-	g++ -ggdb -std=c++11 -fPIC xed_disass.c xed_wrap.cxx xed_bb_chop.cxx -I/data/andrzejn/local/include/python2.7 -I. -I.. -I../include -L../../lib -lxed -shared -o _xed.so
+	g++ -ggdb -O0 -std=c++11 -fPIC xed_disass.c xed_wrap.cxx xed_bb_chop.cxx -I/data/andrzejn/local/include/python2.7 -I. -I.. -I../include -L../../lib -lxed -shared -o _xed.so
 
 xed_wrap.cxx xed.py: xed.i
 	/data/andrzejn/local/bin/swig -I.. -I../include -Dinline= -Wall -python -c++ xed.i	 

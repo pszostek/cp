@@ -93,9 +93,12 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
     char *strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
+    // AN: remove crashes when symbols not found or return is -1? (not sure if this is right)
+    if (symtab_section_idx == -1) return;
+    //printf("xx %x %d\n", strtab, symtab_section_idx);
+    
     uint32_t symtab_entries = get_number_of_symbols(elf_data, symtab_section_idx);
 
-    // AN: todo: this crashes on ls, presumably there is a symtab missing or something and we don't take it into account
     Elf64_Shdr *symtab = &elf_shdr[symtab_section_idx]; 
     Elf64_Sym *symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
@@ -139,7 +142,9 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
             elf_symbol_bases[symidx] = symbol->st_value;;
             elf_symbol_sizes[symidx] = symbol->st_size;
 #ifdef DEBUG
-            printf("\t%d %-25s 0x%-14lx %-ld\n",
+            // AN: todo: this crashes on /lib64/libdl*so, presumably there is something missing
+                printf("\t%d %-25s 0x%-14lx %-ld\n",
+                symbol->st_name,
                 &strtab[symbol->st_name],
                 symbol->st_value,
                 symbol->st_size);
