@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-//#define DEBUG
+#define DEBUG
 //#define VERBOSE
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15
@@ -215,18 +215,18 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
     // harvest addresses from ELF section boundaries
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
-        addrs.insert(elf_section_bases[secidx]);
-#ifdef DEBUG
-        printf("sec start 0x%x", elf_section_bases[secidx]);
-#endif
-        addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
-	end_addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);
-#ifdef DEBUG
-        printf("[sec] S 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx]);
-        printf("[sec] E 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);            
-	if (elf_section_bases[secidx] + elf_section_sizes[secidx] - 1 == 0x108c0) printf("POINT1: ins\n");
-        printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
-#endif
+        if(elf_section_sizes[secidx] > 0) {
+            addrs.insert(elf_section_bases[secidx]);
+            addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
+            end_addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);        
+            #ifdef DEBUG
+            //printf("sec start 0x%x", elf_section_bases[secidx]);
+            printf("[sec] S 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx]);
+            printf("[sec] E 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);            
+            //if (elf_section_bases[secidx] + elf_section_sizes[secidx] - 1 == 0x108c0) printf("POINT1: ins\n");
+            // printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
+            #endif
+        }
     }
 
     unsigned long long binary_base = get_binary_base(elf_data);
@@ -242,7 +242,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         if(elf_symbol_sizes[symidx] > 0) {
             addrs.insert(elf_symbol_bases[symidx] - binary_base);
 #ifdef DEBUG
-            printf("sym start 0x%x\n", elf_symbol_bases[symidx] - binary_base);
+//            printf("sym start 0x%x\n", elf_symbol_bases[symidx] - binary_base);
 #endif
             addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
             end_addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
@@ -250,12 +250,12 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
             printf("[sym] S 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);     
             printf("[sym] E 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
             if (elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
-            printf("sym end 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
+//            printf("sym end 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
 #endif
         }
     }
 
-    unsigned long long jump_addr = 0;
+    unsigned long long jump_target = 0;
     char cur_inst_len;
 
     xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
@@ -285,25 +285,34 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
               case XED_ERROR_NONE:
                   cur_inst_len = xed_decoded_inst_get_length(xedd);
                   if(terminates_bb(xedd)) {
-                      jump_addr = xed_decoded_inst_get_branch_displacement(xedd) ?
+                      jump_target = xed_decoded_inst_get_branch_displacement(xedd) ?
                           xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len :
                           0;
 #ifdef DEBUG
-                      if (jump_addr == 0) {
+                      if (jump_target == 0) {
                        char* buffer = (char*) malloc(512);
                         xed_decoded_inst_dump(xedd, buffer, 512);
                         printf("%s\n", buffer);
                       }
-                      printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_addr, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
+                      printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
 #endif
                       addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
                       end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
-//                      if(decode_window_start + cur_inst_len - 1 == 0x108c0) printf("POINT3: ins\n");
 
-                      if (jump_addr && jump_addr < 0x4000000000) {
-                          addrs.insert(jump_addr);
-                          end_addrs.insert(jump_addr - 1);
-//                          if(jump_addr - 1 == 0x108c0) printf("POINT4: ins, 0x%x\n", jump_addr); 
+                      #ifdef DEBUG
+                      printf("[jmp] S 0x%x\n", decode_window_start + cur_inst_len);
+                      printf("[jmp] E 0x%x\n", decode_window_start + cur_inst_len - 1);
+                      if(decode_window_start + cur_inst_len - 1 == 0x108c0) printf("POINT3: ins\n");
+                      #endif
+
+                      if (jump_target && jump_target < 0x4000000000) {
+                          addrs.insert(jump_target);
+                          end_addrs.insert(jump_target - 1);
+                          #ifdef DEBUG
+                          printf("[tgt] S 0x%x\n", jump_target);
+                          printf("[tgt] E 0x%x\n", jump_target - 1);
+                          if(jump_target - 1 == 0x108c0) printf("POINT4: ins, 0x%x\n", jump_target); 
+                          #endif
                       }
                   }
                   decode_window_start += cur_inst_len;
@@ -320,7 +329,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         } //while
     }
 
-    
+    #ifdef DEBUG
+    printf("BEGIN ADDRESS DUMP\n");
+    #endif
     std::vector<unsigned long> ret(addrs.size());    
     std::copy(addrs.begin(), addrs.end(), ret.begin());
     sort(ret.begin(), ret.end());
