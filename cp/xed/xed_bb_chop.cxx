@@ -183,6 +183,179 @@ static void get_sections_info(char* elf_data, std::vector<unsigned long long>& e
     }
 }
 
+
+/* This function attempts to track BB boundaries according to the blessed Levinthal's method.
+ * It keeps a set of starting addresses coming from various logical sources:
+ *    * symbol offsets
+ *    ? symbol offsets + symbol sizes + 1
+ *    * section offsets
+ *    ? section offsets + section sizes + 1
+ *    * addresses of jump instructions + len(jump instuction)
+ *    * destination addresses of jump instructions
+ *  It also attempts to track BB end addresses (=the address of the last byte) from the following sources:
+ *    * last byte of an ELF section
+ *    * last byte of a symbol
+ *    * addresses of jump instructions + len(jump instructio) - 1
+ *    * destination addreses of jump instrictions - 1
+ */
+
+std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned int fsize) {
+    std::unordered_set<unsigned long long> addrs; //this set will keep all the starting addresses of BB
+    std::unordered_set<unsigned long long> end_addrs; //this set will keep all the presumed ending addresses of BB
+
+    std::vector<unsigned long long> elf_section_bases(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
+
+    get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
+
+    // harvest addresses from ELF section boundaries
+    for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
+        addrs.insert(elf_section_bases[secidx]);
+#ifdef DEBUG
+        printf("sec start 0x%x", elf_section_bases[secidx]);
+#endif
+        addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
+	end_addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);
+#ifdef DEBUG
+        printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
+#endif
+    }
+
+    unsigned long long binary_base = get_binary_base(elf_data);
+    int16_t symtab_idx = get_symtab_idx(elf_data);
+    uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
+    std::vector<unsigned long long> elf_symbol_bases(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
+
+    get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes);
+
+    // harvest addresses from ELF symbol boundaries
+    for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
+        if(elf_symbol_sizes[symidx] > 0) {
+            addrs.insert(elf_symbol_bases[symidx] - binary_base);
+#ifdef DEBUG
+            printf("sym start 0x%x\n", elf_symbol_bases[symidx] - binary_base);
+#endif
+            addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
+            end_addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
+#ifdef DEBUG
+            printf("sym end 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
+#endif
+        }
+    }
+
+    unsigned long long jump_addr = 0;
+    char cur_inst_len;
+
+    xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
+    xed_state_t dstate;
+    xed_state_zero(&dstate);
+    xed_state_init(&dstate,
+        XED_MACHINE_MODE_LONG_64,
+        XED_ADDRESS_WIDTH_64b,
+        XED_ADDRESS_WIDTH_64b);
+    xed_error_enum_t xed_error;
+    
+    xed_tables_init();
+
+    for(char section=0; section < NUMBER_OF_SECTIONS; ++section) {
+        unsigned long long section_base = elf_section_bases[section];
+        unsigned long long decode_window_start = section_base;
+        unsigned long long section_len = elf_section_sizes[section];
+        
+        while(decode_window_start < section_base+section_len) { //decode the whole section
+          xed_decoded_inst_zero_set_mode(xedd, &dstate);
+          xed_error = xed_decode(xedd, 
+              XED_REINTERPRET_CAST(xed_uint8_t*,elf_data+decode_window_start),
+              LONGEST_POSSIBLE_INSTRUCTION+1);
+          //since we are interested in a single instruction, we set the decoding window to the longest possible instruction (15 bytes)
+
+          switch(xed_error) {
+              case XED_ERROR_NONE:
+                  cur_inst_len = xed_decoded_inst_get_length(xedd);
+                  if(terminates_bb(xedd)) {
+                      jump_addr = xed_decoded_inst_get_branch_displacement(xedd) ?
+                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len :
+                          0;
+#ifdef DEBUG
+                      if (jump_addr == 0) {
+                       char* buffer = (char*) malloc(512);
+                        xed_decoded_inst_dump(xedd, buffer, 512);
+                        printf("%s\n", buffer);
+                      }
+                      printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_addr, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
+#endif
+                      addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
+                      end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
+
+                      if (jump_addr && jump_addr < 0x4000000000) {
+                          addrs.insert(jump_addr);
+                          end_addrs.insert(jump_addr - 1);
+                      }
+                  }
+                  decode_window_start += cur_inst_len;
+                  break;
+
+              case XED_ERROR_BUFFER_TOO_SHORT:
+              case XED_ERROR_GENERAL_ERROR: //decode window is too short - there is no meaningful instruction inside
+              default:
+#ifdef DEBUG
+                  printf("Decode error at %lx\n", decode_window_start);
+#endif
+                  decode_window_start += 1;
+          } //switch 
+        } //while
+    }
+
+    
+    std::vector<unsigned long> ret(addrs.size());    
+    std::copy(addrs.begin(), addrs.end(), ret.begin());
+    sort(ret.begin(), ret.end());
+
+    std::vector<unsigned long> end_ret(end_addrs.size());    
+    std::copy(end_addrs.begin(), end_addrs.end(), end_ret.begin());
+    sort(end_ret.begin(), end_ret.end());
+
+//    std::vector<bbnowak_t> ret_blocks(std::max(addrs.size(), end_addrs.size()));
+    std::vector<bbnowak_t> ret_blocks;
+    printf("MAX %d, SIZE %d\n", std::max(addrs.size(), end_addrs.size()), ret_blocks.size());
+//    printf("Captured %d start addresses, %d end addresses\n", ret.size(), end_ret.size());
+    int i=0, j=0, ret_s = ret.size(), end_ret_s = end_ret.size();
+    unsigned long long sa = -1, ea = -1, sa_next = -1;
+    // AN: todo: last block is chopped off, add boundary condition
+    ea = end_ret[j];
+    while(i < (ret_s-1)) {
+      bbnowak_t *current_bb = new bbnowak_t;
+      sa = ret[i];
+      sa_next = ret[i+1];
+//      printf("\n0x%x,", sa);
+      current_bb->start = sa;
+      while(ea < sa_next && j < end_ret_s) {
+//        printf("0x%x,%d,", ea, ea-sa);
+        current_bb->end = ea;
+        current_bb->len = ea-sa;
+        j++;
+        ea = end_ret[j];
+      };
+      ret_blocks.push_back(*current_bb);
+      i++;
+    }
+//    printf("\n\n");
+
+/*    
+    printf("BEGIN ADDRS ===================================\n");
+    for (auto i: ret) {
+        printf("0x%x\n", i);
+    }
+    printf("END ADDRS ===================================\n");
+    for (auto i: end_ret) {
+        printf("0x%x\n", i);
+    }
+*/
+    return ret_blocks;
+}
+
+
 /* This functions tries to detect BB boundaries according to the blessed Levinthal's method.
  * It keeps a set of starting addresses coming from various logical sources:
  *    * symbol offsets

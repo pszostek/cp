@@ -46,7 +46,14 @@ typedef struct {
   jump_t jump;
 } bb_t;
 
+typedef struct {
+  uint32_t start;
+  uint16_t len;
+  uint32_t end;
+} bbnowak_t;
+
 std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize);
+std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned int fsize);
 std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize);
 std::vector<int> test();
 
