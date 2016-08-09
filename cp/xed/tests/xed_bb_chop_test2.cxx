@@ -12,6 +12,13 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    FILE *outf;
+    if(argc == 3) {
+      outf = fopen(argv[2], "w");    
+    } else {
+      outf = stdout;
+    }
+    
     FILE* fp = fopen(argv[1], "r");
     size_t file_length;
 
@@ -40,8 +47,10 @@ int main(int argc, char** argv) {
 
     std::vector<bbnowak_t> blocks = newer_detect_static_basic_blocks(elf_data, newLen);
     //cout << blocks.size() << endl;
+    fprintf(outf, "bb,bb_end,len\n");
     for(auto i: blocks)
-        printf("0x%x,0x%x,%d\n", i.start, i.end, i.len);
-
+        fprintf(outf, "0x%x,0x%x,%d\n", i.start, i.end, i.len);
+    fclose(outf);
+    
     return 0;
 }
