@@ -15,8 +15,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define DEBUG
-#define VERBOSE
+//#define DEBUG
+//#define VERBOSE
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15
 
