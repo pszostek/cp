@@ -15,8 +15,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
-//#define DEBUG
-//#define VERBOSE
+#define DEBUG
+#define VERBOSE
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15
 
@@ -29,9 +29,6 @@ static inline int32_t get_symtab_idx(char* elf_data) {
     elf_hdr = (Elf64_Ehdr *)elf_data;
     elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
-#ifdef VERBOSE
-    printf("\t%-25s %-16s %-s\n", "Symbol name", "offset", "size");
-#endif
     int32_t ret = -1;
     for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
                  if(elf_shdr[i].sh_type == SHT_SYMTAB) {
@@ -82,15 +79,37 @@ static unsigned long long get_binary_base(char* elf_data) {
 
 }
 
+
+static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
+    // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
+    Elf64_Ehdr *elf_hdr;
+    Elf64_Shdr *elf_shdr;
+    char *strtab;
+
+    elf_hdr = (Elf64_Ehdr *)elf_data;
+    elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+    strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
+
+    for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
+        if(!strcmp(&strtab[elf_shdr[i].sh_name], ".strtab")) {
+            return std::make_pair(elf_shdr[i].sh_offset, elf_shdr[i].sh_size);
+        }
+    }
+    return std::make_pair(0L, 0L);
+}
+
+
 static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& elf_symbol_bases, std::vector<unsigned long long>& elf_symbol_sizes) {
     #ifdef DEBUG
     printf("Get Symbols Info called: elf_data@0x%x, elf_symbol_bases@0x%x, elf_symbol_sizes@0x%x\n", elf_data, elf_symbol_bases, elf_symbol_sizes);
     #endif
-    
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
-    char *strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
+    uint64_t strtab_offset, strtab_size;
+    std::tie(strtab_offset, strtab_size) = get_strtab_info(elf_data);
+    char *strtab = elf_data + strtab_offset;
+
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     // AN: remove crashes when symbols not found or return is -1? (not sure if this is right)
@@ -103,7 +122,7 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
     Elf64_Sym *symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
     #ifdef DEBUG
-    printf("\t%-25s %-16s %-s\n", "Symbol name", "offset", "size");
+    printf("\t%-40s %-14s %-s\n", "Symbol name", "offset", "size");
     #endif
 
     for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
@@ -143,8 +162,7 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
             elf_symbol_sizes[symidx] = symbol->st_size;
 #ifdef DEBUG
             // AN: todo: this crashes on /lib64/libdl*so, presumably there is something missing
-                printf("\t%d %-25s 0x%-14lx %-ld\n",
-                symbol->st_name,
+                printf("\t%-40s 0x%-14lx %-ld\n",
                 &strtab[symbol->st_name],
                 symbol->st_value,
                 symbol->st_size);
@@ -152,6 +170,7 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
         }
     }
 }
+
 
 static void get_sections_info(char* elf_data, std::vector<unsigned long long>& elf_section_bases, std::vector<unsigned long long>& elf_section_sizes) {
     // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
@@ -678,7 +697,7 @@ std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize)
 #endif
 
 #ifdef VERBOSE
-    printf("\nGathered %d addresses and %d jumps\n", num_bbs, num_jumps);
+    printf("\nGathered %d addresses and %d jumps\n", num_bbs, jumps_count);
 #endif
     std::vector<bb_t> ret;
     ret.insert(ret.begin(), bbs, bbs+(num_bbs+1));
