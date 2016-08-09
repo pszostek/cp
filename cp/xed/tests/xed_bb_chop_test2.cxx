@@ -12,13 +12,6 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    FILE *outf;
-    if(argc == 3) {
-      outf = fopen(argv[2], "w");    
-    } else {
-      outf = stdout;
-    }
-    
     FILE* fp = fopen(argv[1], "r");
     size_t file_length;
 
@@ -34,15 +27,22 @@ int main(int argc, char** argv) {
       //printf("file length %zu, read %zu\n", file_length, newLen);
 
       if (newLen == 0) {
-        fputs("Error reading file", stderr);
+        fprintf(stderr, "%s: error reading file '%s'", argv[0], argv[1]);
         return 1;
       } else {
         elf_data[newLen] = '\0';
       }
       fclose(fp);
     } else {
-      printf("can't open file\n");
+      printf("%s: can't open file '%s'\n", argv[0], argv[1]);
       return 1;
+    }
+
+    FILE *outf;
+    if(argc == 3) {
+      outf = fopen(argv[2], "w");    
+    } else {
+      outf = stdout;
     }
 
     std::vector<bbnowak_t> blocks = newer_detect_static_basic_blocks(elf_data, newLen);
