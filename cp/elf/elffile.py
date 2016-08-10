@@ -235,10 +235,13 @@ class ELFFile(ELFFile_):
         return IntervalTree(intervals)
 
     def _get_binary_base(self):
-        for segment in self.iter_segments():
-            if segment['p_type'] == "PT_LOAD" and segment['p_offset'] == 0:
-                return segment['p_vaddr']
-        raise ELFFileError("Can't find base for the .text segment")
+        text = self.get_section_by_name(".text")
+        if text is None:
+            raise ELFFileError("Can't find base for the .text segment")
+        return abs(text['sh_addr'] - text['sh_offset']) # a new approach valid also for .ko files
+        # for segment in self.iter_segments():
+        #    if segment['p_type'] == "PT_LOAD" and segment['p_offset'] == 0:
+        #        return segment['p_vaddr']
 
   #  def _offset_inside_segment(self, offset, segment):
   #      sh = segment.header
