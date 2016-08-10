@@ -402,6 +402,16 @@ namespace std {
         SWIG_exception(SWIG_IndexError, "Index out of bounds");
     }
 }
+
+%pythoncode %{
+def get_static_bbs(elffile):
+    cur_seek = elffile._fd.tell()
+    elffile._fd.seek(0)
+    elffile_content = elffile._fd.read()
+    elffile._fd.seek(cur_seek)
+    return newer_detect_static_basic_blocks(elffile_content)
+
+   %}
 // XED_INLINE -> inline
 // xed_strcat -> //xed_strcat
 // xed_uint32_t -> uint32_t etc.
