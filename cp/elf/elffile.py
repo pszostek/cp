@@ -19,9 +19,21 @@ class ELFFileError(Exception):
 
 class ELFFile(ELFFile_):
     def __init__(self, filepath):
+        self._path = filepath
         self._fd = open(filepath, 'rb')
+        self.__symbol_interval_tree = None
         ELFFile_.__init__(self, self._fd)
-        self._symbol_interval_tree = self._build_symbol_tree()
+
+    # a method allowing buidling the Symbol Interval Tree lazily
+    def get_symbol_interval_tree(self):
+        if self.__symbol_interval_tree is None:
+            self.__symbol_interval_tree = self._build_symbol_tree()
+        return self.__sybol_interval_tree
+
+    def set_symbol_interval_tree(self, sth):
+        self.__symbol_interval_tree = sth
+
+    _symbol_interval_tree = property(get_symbol_interval_tree, set_symbol_interval_tree)
 
     def __del__(self):
         self._fd.close()
@@ -176,9 +188,12 @@ class ELFFile(ELFFile_):
     def get_text_by_offset(self, offset):
         pass
 
+    def has_symtab(self):
+        symtab = self._get_symbol_table()
+        return symtab is not None
+
 ### private functions ###
 
-    def _get_text_offset(self):
         text_section = self.get_section_by_name('.text')
         for segment in self.iter_segments():
             if segment.section_in_segment(text_section):
