@@ -16,15 +16,18 @@
 
 
 // http://www.swig.org/Doc1.3/Library.html#Library_nn10
+%apply (char* STRING, int LENGTH) { (char* elf_data, unsigned int fsize)};
 %apply (char* STRING, size_t LENGTH) { (char* elf_data, size_t fsize)};
-/*%typemap(in) (char* data, unsigned int length) {
+/*
+%typemap(in) (char* data, unsigned int length) {
   if (!PyString_Check($input)) {
     PyErr_SetString(PyExc_ValueError, "Expecting a string");
     return NULL;
   }
   $1 = PyString_AsString($input);
   $2 = PyString_Size($input);
-}*/
+}
+*/
 /*
 %typemap(in) (char* elf_data, unsigned int fsize, unsigned base) {
   if (!PyString_Check($input)) {
@@ -124,6 +127,7 @@ namespace std {
    %template(bbvector) vector<bb_t>;
    %template(intvector) vector<int>;
    %template(uintvector) vector<unsigned>;
+   %template(bbnowakvector) vector<bbnowak_t>;
    //%template(bbslist) list<bb_t>;
 };
 
@@ -255,6 +259,12 @@ namespace std {
     }
 }
 
+%extend bbnowak_t {
+          %pythoncode %{
+          def __repr__(self):
+            return "(0x%x,0x%x,%d)" % (self.start, self.end, self.len)
+          %}
+};
 %extend inst_list_t {
 
     xed_decoded_inst_t* __getitem__(int i) {
