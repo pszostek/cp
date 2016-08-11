@@ -199,6 +199,7 @@ class ELFFile(ELFFile_):
 
 ### private functions ###
 
+    def _get_text_offset(self):
         text_section = self.get_section_by_name('.text')
         for segment in self.iter_segments():
             if segment.section_in_segment(text_section):
