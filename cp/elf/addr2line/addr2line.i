@@ -32,6 +32,9 @@
 %include "fast_addr2line.h"
 
 %pythoncode %{
+def init(elffile):
+    initialize_line_numbers(elffile._path)
+    
 import pandas
 def collect():
     data = printall()
