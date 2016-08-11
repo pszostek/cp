@@ -235,7 +235,7 @@ def get_basic_block(module, offset, to=None):
         if to is None:
             length = len(bytes) - offset
         else:
-            length =  to - offset
+            length =  to - offset + 1
         #bb = disassemble_x64_until_bb_end(bytes, length=length, base=offset)
         bb = disassemble_x64(bytes, length=length, base=offset)
        # print('base %d, ifbb %d' % (bb.base, bb.is_finished_by_branch()))
