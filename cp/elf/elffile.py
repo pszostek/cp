@@ -6,6 +6,7 @@ from collections import namedtuple
 from pyelftools.elftools.elf.elffile import ELFFile as ELFFile_
 from pyelftools.elftools.elf.sections import Section
 from pyelftools.elftools.common.py3compat import bytes2str
+import disass
 
 Func = namedtuple("Func", ["name", "mangled_name", "offset", "size"])
 
@@ -167,6 +168,10 @@ class ELFFile(ELFFile_):
             if self._offset_inside_section(offset, section):
                 return section
         raise ELFFileError("There is no section that contains given offset: %d" % offset)
+
+    def get_inst_lists(self, addrs_list):
+        """ A proxy method for a proper disassembly function"""
+        return disass.get_inst_lists(self, addrs_list)
 
     def get_symbol_by_offset(self, offset):
         """
