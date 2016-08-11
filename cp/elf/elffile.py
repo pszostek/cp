@@ -28,7 +28,7 @@ class ELFFile(ELFFile_):
     def get_symbol_interval_tree(self):
         if self.__symbol_interval_tree is None:
             self.__symbol_interval_tree = self._build_symbol_tree()
-        return self.__sybol_interval_tree
+        return self.__symbol_interval_tree
 
     def set_symbol_interval_tree(self, sth):
         self.__symbol_interval_tree = sth
