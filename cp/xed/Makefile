@@ -4,7 +4,7 @@ tests:
 	$(MAKE) -C tests
 
 _xed.so: xed_disass.c xed_wrap.cxx xed_disass.h
-	g++ -std=c++11 -fPIC xed_disass.c xed_wrap.cxx xed_bb_chop.cxx -I/usr/local/include/python2.7 -I. -I.. -I../include -L../../lib -lxed -shared -o _xed.so
+	g++ -O3 -ggdb -std=c++11 -fPIC xed_disass.c xed_wrap.cxx xed_bb_chop.cxx -I/data/andrzejn/local/include/python2.7 -I/usr/local/include/python2.7 -I. -I.. -I../include -L../../lib -lxed -shared -o _xed.so
 
 xed_wrap.cxx xed.py: xed.i
 	swig -I.. -I../include -Dinline= -Wall -python -c++ xed.i	 
@@ -21,5 +21,5 @@ xed-ex2.o: xed-ex2.cpp
 .PHONY: clean tests
 
 clean:
-	rm -rf xed-ex2 xed-ex2.o xed_wrap.cxx _xed.so xed.py *.pyc *.o xed_bb_chop
+	rm -rf xed-ex2 xed-ex2.o xed_wrap.cxx _xed.so xed.py *.pyc *.o xed_bb_chop xed_bb_chop2
 	$(MAKE) -C tests clean
