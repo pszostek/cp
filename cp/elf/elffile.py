@@ -196,6 +196,10 @@ class ELFFile(ELFFile_):
     def has_symtab(self):
         symtab = self._get_symbol_table()
         return symtab is not None
+        
+    def has_dynsym(self):
+        dynsym = self._get_dynsym_table()
+        return dynsym is not None
 
 ### private functions ###
 
@@ -211,11 +215,22 @@ class ELFFile(ELFFile_):
         symtab = self.get_section_by_name(sym_name)
         return symtab
 
+    def _get_dynsym_table(self):
+        sym_name = b'.dynsym'
+        dynsym = self.get_section_by_name(sym_name)
+        return dynsym
+
     def _iter_func(self, symbols_iter=None):
         from ..demangle import demangle
         if symbols_iter is None:
-            symtab = self._get_symbol_table()
-            symbols_iter = symtab.iter_symbols()
+            if self.has_symtab():
+                symtab = self._get_symbol_table()
+                symbols_iter = symtab.iter_symbols()
+            elif self.has_dynsym():
+                symtab = self._get_dynsym_table()
+                symbols_iter = symtab.iter_symbols()            
+            else:
+                raise StopIteration()
 
         for sym in symbols_iter:
             if sym.entry['st_info']['type'] == 'STT_FUNC':
