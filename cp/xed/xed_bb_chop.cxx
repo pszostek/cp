@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-//#define DEBUG
+#define DEBUG
 //#define VERBOSE
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15
@@ -35,8 +35,32 @@ static inline int32_t get_symtab_idx(char* elf_data) {
                      ret = i;
                  }
     }
+
+    // if there is no symtab, dig out dynsym at least; 
+    // NB: the caller will not know if they're
+    //     dealing with a SYMTAB or DYNSYM
+    if (ret == -1) {
+      #ifdef DEBUG
+      printf("There was no symtab found, looking for dynsym\n");
+      #endif
+      for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
+                   if(elf_shdr[i].sh_type == SHT_DYNSYM) {
+                       ret = i;
+                   }
+      }
+    } else {
+      #ifdef DEBUG
+      printf("Symtab found\n");
+      #endif    
+    }
+
+    #ifdef DEBUG
+    printf("The search for symbols returned index %d\n", ret);
+    #endif
+
     return ret;
 }
+
 static inline uint32_t get_number_of_symbols(char* elf_data, int symtab_idx) {
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -100,16 +124,16 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
 
 
 static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& elf_symbol_bases, std::vector<unsigned long long>& elf_symbol_sizes) {
-    #ifdef DEBUG
-    printf("Get Symbols Info called: elf_data@0x%x, elf_symbol_bases@0x%x, elf_symbol_sizes@0x%x\n", elf_data, elf_symbol_bases, elf_symbol_sizes);
-    #endif
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+    #ifdef DEBUG
+    printf("Get Symbols Info called; pointers: elf_data@0x%x, elf_symbol_bases@0x%x, elf_symbol_sizes@0x%x\n", elf_data, elf_symbol_bases, elf_symbol_sizes);
+    printf("This file is of type %d, (RELOC: %s)\n", elf_hdr->e_type, elf_hdr->e_type == ET_REL ? "True" : "False");
+    #endif
 
     uint64_t strtab_offset, strtab_size;
     std::tie(strtab_offset, strtab_size) = get_strtab_info(elf_data);
     char *strtab = elf_data + strtab_offset;
-
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     // AN: remove crashes when symbols not found or return is -1? (not sure if this is right)
@@ -122,7 +146,7 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
     Elf64_Sym *symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
     #ifdef DEBUG
-    printf("\t%-40s %-14s %-s\n", "Symbol name", "offset", "size");
+    printf("\t%-40s %-14s %-14s %-s\n", "Symbol name", "offset", "last byte", "size (hex)");
     #endif
 
     for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
@@ -160,13 +184,14 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
                 continue;
             elf_symbol_bases[symidx] = symbol->st_value;;
             elf_symbol_sizes[symidx] = symbol->st_size;
-#ifdef DEBUG
-            // AN: todo: this crashes on /lib64/libdl*so, presumably there is something missing
-                printf("\t%-40s 0x%-14lx %-ld\n",
+            #ifdef DEBUG
+            printf("\t%-40s 0x%-14lx 0x%-14lx %-ld (0x%-x)\n",
                 &strtab[symbol->st_name],
                 symbol->st_value,
+                symbol->st_value+symbol->st_size-1,
+                symbol->st_size,
                 symbol->st_size);
-#endif
+            #endif
         }
     }
 }
@@ -183,12 +208,13 @@ static void get_sections_info(char* elf_data, std::vector<unsigned long long>& e
     strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
 
 #ifdef DEBUG
-    printf("\t%-25s %-16s %-s\n", "Section name", "offset", "size");
+    printf("\t%-4s %-25s %-16s %-s\n", "ID", "Section name", "offset", "size");
 #endif
 
     for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
 #ifdef DEBUG
-        printf("\t%-25s 0x%-14lx %-ld\n",
+        printf("\t[%2d] %-25s 0x%-14lx %-ld\n",
+            i,
             &strtab[elf_shdr[i].sh_name],
             elf_shdr[i].sh_offset,
             elf_shdr[i].sh_size);
@@ -233,6 +259,8 @@ static void get_sections_info(char* elf_data, std::vector<unsigned long long>& e
  */
 
 std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned int fsize) {
+    Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;    
+    
     std::unordered_set<unsigned long long> addrs; //this set will keep all the starting addresses of BB
     std::unordered_set<unsigned long long> end_addrs; //this set will keep all the presumed ending addresses of BB
 
@@ -277,7 +305,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 #ifdef DEBUG
             printf("[sym] S 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);     
             printf("[sym] E 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
-            if (elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
+//            if (elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
 //            printf("sym end 0x%x\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
 #endif
         }
@@ -302,35 +330,49 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         unsigned long long decode_window_start = section_base;
         unsigned long long section_len = elf_section_sizes[section];
         
+        // if it is a REL type, heuristically adjust addresses coming out, assuming the section base as 0
+        unsigned long long rel_adjustment = elf_hdr->e_type == ET_REL ? section_base : 0;
+        
+        #ifdef DEBUG
+        printf("Decoding section 0x%x-0x%x (length: %d). ", section_base, section_base + section_len - 1, section_len);
+        printf("The module %s of type REL, assuming rel_adjustment of -0x%x bytes\n", 
+            elf_hdr->e_type == ET_REL ? "IS" : "is NOT",
+            rel_adjustment);
+        #endif
+        
         while(decode_window_start < section_base+section_len) { //decode the whole section
           xed_decoded_inst_zero_set_mode(xedd, &dstate);
           xed_error = xed_decode(xedd, 
               XED_REINTERPRET_CAST(xed_uint8_t*,elf_data+decode_window_start),
               LONGEST_POSSIBLE_INSTRUCTION+1);
-          //since we are interested in a single instruction, we set the decoding window to the longest possible instruction (15 bytes)
 
+          //since we are interested in a single instruction, we set the decoding window to the longest possible instruction (15 bytes)
           switch(xed_error) {
               case XED_ERROR_NONE:
                   cur_inst_len = xed_decoded_inst_get_length(xedd);
+                  #ifdef DEBUG
+                  printf("\tilen %d, terminates: %d\n", cur_inst_len, terminates_bb(xedd));
+                  #endif
                   if(terminates_bb(xedd)) {
                       jump_target = xed_decoded_inst_get_branch_displacement(xedd) ?
-                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len :
+                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len - rel_adjustment:
                           0;
-#ifdef DEBUG
+                      #ifdef DEBUG
                       if (jump_target == 0) {
                        char* buffer = (char*) malloc(512);
                         xed_decoded_inst_dump(xedd, buffer, 512);
                         printf("%s\n", buffer);
-                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
+                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start - rel_adjustment, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len-rel_adjustment);
                       }
-#endif
-                      addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
-                      end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
+                      #endif
+
+                      addrs.insert(decode_window_start + cur_inst_len - rel_adjustment); //next bb after the current one
+                      end_addrs.insert(decode_window_start + cur_inst_len - rel_adjustment - 1); // last byte of the current instruction
 
                       #ifdef DEBUG
-                      printf("[jmp] S 0x%x\n", decode_window_start + cur_inst_len);
-                      printf("[jmp] E 0x%x\n", decode_window_start + cur_inst_len - 1);
-                      if(decode_window_start + cur_inst_len - 1 == 0x108c0) printf("POINT3: ins\n");
+                      printf("[jmp] S 0x%x\n", decode_window_start + cur_inst_len - rel_adjustment);
+                      printf("[jmp] E 0x%x\n", decode_window_start + cur_inst_len - rel_adjustment - 1);
+//                      if(decode_window_start + cur_inst_len - 1 == 0x108c0) printf("POINT3: ins\n");
                       #endif
 
                       if (jump_target && jump_target < 0x4000000000) {
@@ -339,7 +381,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                           #ifdef DEBUG
                           printf("[tgt] S 0x%x\n", jump_target);
                           printf("[tgt] E 0x%x\n", jump_target - 1);
-                          if(jump_target - 1 == 0x108c0) printf("POINT4: ins, 0x%x\n", jump_target); 
+//                          if(jump_target - 1 == 0x108c0) printf("POINT4: ins, 0x%x\n", jump_target); 
                           #endif
                       }
                   }
