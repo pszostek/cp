@@ -285,16 +285,24 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     // harvest addresses from ELF section boundaries
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         if(elf_section_sizes[secidx] > 0) {
-            addrs.insert(elf_section_bases[secidx]);
-            addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
-            end_addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);        
-            #ifdef DEBUG
-            //printf("sec start 0x%x", elf_section_bases[secidx]);
-            printf("[sec] S 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx]);
-            printf("[sec] E 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);            
-            //if (elf_section_bases[secidx] + elf_section_sizes[secidx] - 1 == 0x108c0) printf("POINT1: ins\n");
-            // printf("sec end 0x%x", elf_section_bases[secidx] + elf_section_sizes[secidx]);
-            #endif
+            if (elf_hdr->e_type != ET_REL) {
+                addrs.insert(elf_section_bases[secidx]);
+                addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] );
+                end_addrs.insert(elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);        
+                #ifdef DEBUG
+                printf("[sec] S 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx]);
+                printf("[sec] E 0x%x\n", elf_section_bases[secidx] + elf_section_sizes[secidx] - 1);            
+                #endif
+            } else {
+                addrs.insert(0);
+                addrs.insert(elf_section_sizes[secidx]);
+                end_addrs.insert(elf_section_sizes[secidx] - 1);
+                #ifdef DEBUG
+                printf("[sec] S 0x%x [section in ET_REL]\n", elf_section_sizes[secidx]);
+                printf("[sec] E 0x%x [section in ET_REL]\n", elf_section_sizes[secidx] - 1);            
+                #endif
+                                                                                
+            }
         }
     }
 
