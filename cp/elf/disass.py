@@ -195,6 +195,13 @@ def get_basic_block(elffile, offset, to=None):
     section_size = section.header['sh_size']
     section_end = section_size + section_offset
 
+    """
+    if to == None:
+        print "%s disasm: TO IS None for offset 0x%x" % (elffile._path, offset)
+    if to == 0:
+        print "%s disasm: TO IS 0 for offset 0x%x" % (elffile._path, offset)
+    """
+        
     chunk_size = 64
     saved_pos = fd.tell()
     ret_value = None
