@@ -1,6 +1,7 @@
 #include "xed_bb_chop.h"
 #include <iostream>
 #include <vector>
+#include <unistd.h>
 
 using namespace std;
 
@@ -40,7 +41,8 @@ int main(int argc, char** argv) {
 
     FILE *outf;
     if(argc == 3) {
-      outf = fopen(argv[2], "w");    
+//      unlink(argv[2]);
+      outf = fopen(argv[2], "w");
     } else {
       outf = stdout;
     }

@@ -123,7 +123,10 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
 }
 
 
-static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& elf_symbol_bases, std::vector<unsigned long long>& elf_symbol_sizes) {
+static void get_symbols_info(char* elf_data, 
+        std::vector<unsigned long long>& elf_symbol_bases, 
+        std::vector<unsigned long long>& elf_symbol_sizes,
+        std::vector<unsigned long long>& elf_symbol_secids) {
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
     #ifdef DEBUG
@@ -146,7 +149,7 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
     Elf64_Sym *symtab_addr = (Elf64_Sym *)(elf_data + symtab->sh_offset);
     
     #ifdef DEBUG
-    printf("\t%-40s %-14s %-14s %-s\n", "Symbol name", "offset", "last byte", "size (hex)");
+    printf("%7s %-40s %-14s %-14s %-s\n", "Secn ID", "Symbol name", "offset", "last byte", "size (hex)");
     #endif
 
     for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
@@ -182,10 +185,12 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
             // Internally defined symbol
             if(symbol->st_size == 0) //omit 0-sized functions, e.g. call_gmon_start
                 continue;
-            elf_symbol_bases[symidx] = symbol->st_value;;
+            elf_symbol_bases[symidx] = symbol->st_value;
             elf_symbol_sizes[symidx] = symbol->st_size;
+            elf_symbol_secids[symidx] = symbol->st_shndx;
             #ifdef DEBUG
-            printf("\t%-40s 0x%-14lx 0x%-14lx %-ld (0x%-x)\n",
+            printf("%7d %-40s 0x%-14lx 0x%-14lx %-ld (0x%-x)\n",
+                symbol->st_shndx,
                 &strtab[symbol->st_name],
                 symbol->st_value,
                 symbol->st_value+symbol->st_size-1,
@@ -197,7 +202,10 @@ static void get_symbols_info(char* elf_data, std::vector<unsigned long long>& el
 }
 
 
-static void get_sections_info(char* elf_data, std::vector<unsigned long long>& elf_section_bases, std::vector<unsigned long long>& elf_section_sizes) {
+static void get_sections_info(char* elf_data, 
+    std::vector<unsigned long long>& elf_section_bases, 
+    std::vector<unsigned long long>& elf_section_sizes,
+    std::vector<unsigned long long>& elf_section_ids) {
     // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -222,18 +230,22 @@ static void get_sections_info(char* elf_data, std::vector<unsigned long long>& e
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".text")) {
             elf_section_bases[TEXT] = elf_shdr[i].sh_offset;
             elf_section_sizes[TEXT] = elf_shdr[i].sh_size;
+            elf_section_ids[TEXT] = i;
         }
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".init")) {
             elf_section_bases[INIT] = elf_shdr[i].sh_offset;
             elf_section_sizes[INIT] = elf_shdr[i].sh_size;      
+            elf_section_ids[INIT] = i;
         }        
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".fini")) {
             elf_section_bases[FINI] = elf_shdr[i].sh_offset;
             elf_section_sizes[FINI] = elf_shdr[i].sh_size;        
+            elf_section_ids[FINI] = i;
         }        
         if(!strcmp(&strtab[elf_shdr[i].sh_name], ".plt")) {
             elf_section_bases[PLT] = elf_shdr[i].sh_offset;
             elf_section_sizes[PLT] = elf_shdr[i].sh_size;     
+            elf_section_ids[PLT] = i;
         }  
     }
 }
@@ -266,8 +278,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
     std::vector<unsigned long long> elf_section_bases(NUMBER_OF_SECTIONS, 0);
     std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_ids(NUMBER_OF_SECTIONS, 0);
 
-    get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
+    get_sections_info(elf_data, elf_section_bases, elf_section_sizes, elf_section_ids);
 
     // harvest addresses from ELF section boundaries
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
@@ -290,11 +303,14 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
     std::vector<unsigned long long> elf_symbol_bases(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_secids(number_of_symbols, 0xffffffff);
 
-    get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes);
+    get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes, elf_symbol_secids);
 
     // harvest addresses from ELF symbol boundaries
     for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
+        if((elf_hdr->e_type == ET_REL) && (elf_symbol_secids[symidx] != elf_section_ids[TEXT]))
+            continue;
         if(elf_symbol_sizes[symidx] > 0) {
             addrs.insert(elf_symbol_bases[symidx] - binary_base);
 #ifdef DEBUG
@@ -465,8 +481,9 @@ std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsign
 
     std::vector<unsigned long long> elf_section_bases(NUMBER_OF_SECTIONS, 0);
     std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_ids(NUMBER_OF_SECTIONS, 0);
 
-    get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
+    get_sections_info(elf_data, elf_section_bases, elf_section_sizes, elf_section_ids);
 
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         addrs.insert(elf_section_bases[secidx]);
@@ -484,8 +501,9 @@ std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsign
     uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
     std::vector<unsigned long long> elf_symbol_bases(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_secids(number_of_symbols, 0xffffffff);
 
-    get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes);
+    get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes, elf_symbol_secids);
 
     for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
         if(elf_symbol_sizes[symidx] > 0) {
@@ -581,8 +599,9 @@ std::vector<bb_t> detect_static_basic_blocks(char* elf_data, unsigned int fsize)
 
     std::vector<unsigned long long> elf_section_bases(NUMBER_OF_SECTIONS, 0);
     std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
+    std::vector<unsigned long long> elf_section_ids(NUMBER_OF_SECTIONS, 0);
 
-    get_sections_info(elf_data, elf_section_bases, elf_section_sizes);
+    get_sections_info(elf_data, elf_section_bases, elf_section_sizes, elf_section_ids);
 
     unsigned long long jump_addr = 0;
     char cur_inst_len;

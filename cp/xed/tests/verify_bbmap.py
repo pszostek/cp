@@ -11,11 +11,11 @@ import pandas as p, os, sys
 
 def make_dso_bbmap(fname):
     csvfname = "/tmp/" + os.path.basename(fname)+".bbmap.TMPcsv"
-    if not os.path.exists(csvfname):
-        retval = os.system("/data/andrzejn/ne/chopper2 %s %s" % (fname, csvfname));
-        if retval != 0:
-            print "\tmaking a bbmap for %s failed" % fname
-            raise IOError
+#    if not os.path.exists(csvfname):
+    retval = os.system("/data/andrzejn/ne/chopper2 %s %s" % (fname, csvfname));
+    if retval != 0:
+        print "\tmaking a bbmap for %s failed" % fname
+        raise IOError
 
     bbmap = p.read_csv(csvfname, converters={
           0: lambda x: int(x, 16),
@@ -27,6 +27,7 @@ def make_dso_bbmap(fname):
 fname = sys.argv[1]
 # run objdump on the same file
 cmd = "objdump -D -j .text %s  | egrep '[0-9a-f]+:' | cut -f1 | tr -d : > /tmp/objdump.TMPcsv" % fname
+os.system(cmd)
 df_objdump = p.read_csv("/tmp/objdump.TMPcsv", names=["bb_objdump"], converters={0: lambda x: int(x, 16)})
 df_chopper = make_dso_bbmap(fname)
 
