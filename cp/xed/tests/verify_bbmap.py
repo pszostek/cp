@@ -32,3 +32,9 @@ df_chopper = make_dso_bbmap(fname)
 
 # compare to what objdump is showing
 result = df_objdump.merge(df_chopper, how="outer", left_on="bb_objdump", right_on="bb", left_index=False, right_index=False)
+diff = result[p.isnull(result.bb_objdump)]
+diff.loc[:, "bb"] = diff.loc[:, "bb"].apply(lambda x: hex(x).rstrip("L"))
+diff.loc[:, "bb_end"] = diff.loc[:, "bb_end"].apply(lambda x: hex(x).rstrip("L"))
+print "There are %d blocks that the chopper detected which are not valid instruction start addresses in objdump. Dump follows:" % len(diff)
+print diff
+print "%d blocks are inconsistent" % len(diff)
