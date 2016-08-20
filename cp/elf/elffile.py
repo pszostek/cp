@@ -121,9 +121,10 @@ class ELFFile(ELFFile_):
         return symtab.iter_symbols()
 
     def iter_functions(self):
-        symtab = self._get_symbol_table()
-        return self._iter_func(symtab.iter_symbols())
-
+        #symtab = self._get_symbol_table()
+        #return self._iter_func(symtab.iter_symbols())
+        return self._iter_func() # it will get symtab or dynsym automatically
+        
     def get_symbol_text(self, name):
         if name not in self.get_symbol_names():
             raise ELFFileError('The file has no % symbol' % name)
@@ -143,6 +144,9 @@ class ELFFile(ELFFile_):
         return text
 
     def get_function_names(self):
+        return [func.name for func in self._iter_func()]
+
+    def old_get_function_names(self):
     # print('Processing file:', filename)
         sym_name = b'.symtab'
         symtab = self.get_section_by_name(sym_name)
@@ -253,6 +257,8 @@ class ELFFile(ELFFile_):
         from intervaltree import IntervalTree, Interval
         base = self._get_binary_base()
         intervals = [Interval(func.offset-base, func.offset+func.size-base, func.name) for func in self._iter_func() if func.size != 0]
+#        print(intervals)
+#        print(IntervalTree(intervals))
         return IntervalTree(intervals)
 
     def _get_binary_base(self):
