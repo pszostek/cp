@@ -171,6 +171,116 @@ namespace std {
         return xed_decoded_inst_noperands($self);
     }
 
+    /* XXX: doesn't work for some reason
+    unsigned int data_type_size() {
+        return xed_decoded_inst_get_operand_width($self);
+    }
+    */
+
+    unsigned int _element_to_width(xed_operand_element_type_enum_t elem) {
+        switch(elem) {
+            case XED_OPERAND_ELEMENT_TYPE_INVALID: return 0;
+            case XED_OPERAND_ELEMENT_TYPE_UINT: return 32;
+            case XED_OPERAND_ELEMENT_TYPE_INT: return 32;
+            case XED_OPERAND_ELEMENT_TYPE_SINGLE: return 32;
+            case XED_OPERAND_ELEMENT_TYPE_DOUBLE: return 64;
+            case XED_OPERAND_ELEMENT_TYPE_LONGDOUBLE: return 80;
+            case XED_OPERAND_ELEMENT_TYPE_LONGBCD: return 80;
+            case XED_OPERAND_ELEMENT_TYPE_STRUCT: return 0;
+            case XED_OPERAND_ELEMENT_TYPE_VARIABLE: return 0;
+            case XED_OPERAND_ELEMENT_TYPE_FLOAT16: return 16;
+            case XED_OPERAND_ELEMENT_TYPE_LAST: default: return 0;
+        }
+    }
+
+    unsigned int data_type_size() {
+        unsigned number_of_operands = xed_decoded_inst_s_get_number_of_operands($self);
+        unsigned ret = 0;
+        for(unsigned i=0; i<number_of_operands; ++i) {
+            xed_operand_element_type_enum_t elem_type = xed_decoded_inst_operand_element_type($self, i);
+            unsigned width = xed_decoded_inst_s__element_to_width($self, elem_type);    
+            if(width > ret)
+                ret = width;
+        }
+        return ret;
+    }
+
+    const xed_operand_t* get_operand(unsigned idx) const {
+        const xed_inst_t* inst_inst = xed_decoded_inst_inst($self);
+        const xed_operand_t* xed_op = xed_inst_operand(inst_inst, idx);
+        return xed_op;
+    }
+
+    bool is_simd_scalar() {
+        unsigned number_of_operands = xed_decoded_inst_noperands($self);
+        const xed_inst_t* inst_inst = xed_decoded_inst_inst($self);
+        for(unsigned i=0; i<number_of_operands; ++i) {
+            const xed_operand_t* xed_op = xed_inst_operand(inst_inst, i);
+            xed_operand_width_enum_t width = xed_operand_width(xed_op);
+            if(width == XED_OPERAND_WIDTH_SD || width == XED_OPERAND_WIDTH_SS)
+                return true;
+        }
+        return false;
+    }
+
+    bool is_simd_packed() {
+        unsigned number_of_operands = xed_decoded_inst_noperands($self);
+        const xed_inst_t* inst_inst = xed_decoded_inst_inst($self);
+        for(unsigned i=0; i<number_of_operands; ++i) {
+            const xed_operand_t* xed_op = xed_inst_operand(inst_inst, i);
+            xed_operand_width_enum_t width = xed_operand_width(xed_op);
+            if(width == XED_OPERAND_WIDTH_PD || width == XED_OPERAND_WIDTH_PS)
+                return true;
+        }
+        return false;
+    
+    }
+
+    bool is_mov() {
+        xed_category_enum_t category = xed_decoded_inst_get_category((const xed_decoded_inst_t*)$self);
+        return (category == XED_CATEGORY_DATAXFER);
+    } 
+
+    bool writes_memory() {
+        unsigned number_of_operands = xed_decoded_inst_noperands($self);
+        const xed_inst_t* inst_inst = xed_decoded_inst_inst($self);
+        for(unsigned i=0; i<number_of_operands; ++i) {
+            const xed_operand_t* xed_op = xed_inst_operand(inst_inst, i);
+            xed_operand_action_enum_t op_action = xed_operand_rw(xed_op);
+            xed_operand_enum_t op_name = xed_operand_name(xed_op);
+            // a more straightforward approach doesnt seem to work, namely:
+            // xed_decoded_inst_mem_written(inst, operand_idx) 
+            if((op_name == XED_OPERAND_MEM0 || op_name == XED_OPERAND_MEM1) &&
+                (op_action == XED_OPERAND_ACTION_W ||
+                op_action == XED_OPERAND_ACTION_RW ||
+                op_action == XED_OPERAND_ACTION_RCW ||
+                op_action == XED_OPERAND_ACTION_CRW ||
+                op_action == XED_OPERAND_ACTION_CW))
+                return true;
+        }
+        return false;
+    }
+
+    bool reads_memory() {
+        unsigned number_of_operands = xed_decoded_inst_noperands($self);
+        const xed_inst_t* inst_inst = xed_decoded_inst_inst($self);
+        for(unsigned i=0; i<number_of_operands; ++i) {
+            const xed_operand_t* xed_op = xed_inst_operand(inst_inst, i);
+            xed_operand_action_enum_t op_action = xed_operand_rw(xed_op);
+            xed_operand_enum_t op_name = xed_operand_name(xed_op);
+            // a more straightforward approach doesnt seem to work, namely:
+            // xed_decoded_inst_mem_read(inst, operand_idx) 
+            if((op_name == XED_OPERAND_MEM0 || op_name == XED_OPERAND_MEM1) &&
+                (op_action == XED_OPERAND_ACTION_R ||
+                op_action == XED_OPERAND_ACTION_RW ||
+                op_action == XED_OPERAND_ACTION_RCW ||
+                op_action == XED_OPERAND_ACTION_CRW ||
+                op_action == XED_OPERAND_ACTION_CR))
+                return true;
+        }
+        return false;
+    }
+
     unsigned int get_operand_length(unsigned int idx) {
         return xed_decoded_inst_operand_length($self, idx);
     }
