@@ -10,4 +10,5 @@ ME=$(readlink -f "$0")
 MYPATH=$(dirname "$ME")
 
 $MYPATH/extract-vmlinux.sh /boot/vmlinuz-`uname -r` > /tmp/vmlinux.elf
-cat /boot/System.map-`uname -r` | grep -v "A" | grep -v "D" | grep -v "d" > /tmp/vmlinux.symbols
+cat /boot/System.map-`uname -r` | grep -v " A " | grep -v " D " | grep -v " d " > /tmp/vmlinux.symbols
+# the above line might just become ' | grep fffffff ' in the future
