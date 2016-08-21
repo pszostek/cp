@@ -68,8 +68,24 @@ static inline uint32_t get_number_of_symbols(char* elf_data, int symtab_idx) {
     elf_hdr = (Elf64_Ehdr *)elf_data;
     elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
-    // TODO: read symbols in from a file
-    
+    // TODO: if we find a __ksymtab section, assume that we're dealing with a kernel and read /tmp/vmlinux.symbols
+    // ..beautifully hardcoded and broken in the future..
+
+  /*    
+    if () {
+        FILE *f = fopen("/tmp/vmlinux.symbols", "r");
+        unsigned long long addr;
+        unsigned char type;
+        char name[1024];
+        unsigned long long count = 0;
+
+        while(fscanf(f, "%lx %c %s", &addr, &type, name) != EOF) {
+            count++;
+        }
+        fclose(f);
+        return count;
+    }
+    */
 
     if(elf_shdr[symtab_idx].sh_entsize == 0) // in some cases sh_entsize is 0, e.g. for the linux kernel
         return 0;
@@ -126,6 +142,7 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
 }
 
 
+// TODO: handle System.map stashed in /tmp/vmlinux.symbols
 static void get_symbols_info(char* elf_data, 
         std::vector<unsigned long long>& elf_symbol_bases, 
         std::vector<unsigned long long>& elf_symbol_sizes,
