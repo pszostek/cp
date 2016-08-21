@@ -68,6 +68,9 @@ static inline uint32_t get_number_of_symbols(char* elf_data, int symtab_idx) {
     elf_hdr = (Elf64_Ehdr *)elf_data;
     elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
 
+    // TODO: read symbols in from a file
+    
+
     if(elf_shdr[symtab_idx].sh_entsize == 0) // in some cases sh_entsize is 0, e.g. for the linux kernel
         return 0;
     else
