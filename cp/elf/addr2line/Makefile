@@ -152,6 +152,9 @@ demo:
 	export LD_LIBRARY_PATH=../lib:${LD_LIBRARY_PATH}
 	python -c 'import addr2line as a2l; a2l.initialize_line_numbers("../tests/files/test_elf"); print a2l.find_line_number(0x40080c)'
 
+tests:
+	python addr2line_tests.py
+
 
 xed${EXEEXT}: ${XED_OBJ} ${LIBXED}
 	${CXX_LINKER}  ${LDFLAGS}  ${LINKOUT}$@ $^ ${EXTRA_LDLIBS_TARGET}
@@ -174,7 +177,7 @@ clean:
 	-${RM} ${XED_TEST_APPS} > /dev/null 2>&1
 	-${RM} -f addr2line.pyc addr2line_wrap.cxx _addr2line.so addr2line.py 2>&1
 
-.PHONY: clean demo
+.PHONY: clean demo tests
 
 #################################################################
 -include *.d

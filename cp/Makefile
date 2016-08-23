@@ -7,6 +7,13 @@ $(DIRS):
 	$(MAKE) -C $@
 	@echo ""
 
+tests: $(foreach dir, $(DIRS), $(dir)-tests)
+
+$(foreach dir, $(DIRS), $(dir)-tests):
+	@echo "=== Testing "$(subst -tests,,$@)" ==="
+	$(MAKE) -C $(subst -tests,,$@) tests
+	@echo ""
+
 clean: $(foreach dir, $(DIRS), $(dir)-clean)
 
 $(foreach dir, $(DIRS), $(dir)-clean):
@@ -14,5 +21,5 @@ $(foreach dir, $(DIRS), $(dir)-clean):
 	$(MAKE) -C $(subst -clean,,$@) clean
 	@echo ""
 
-.PHONY: $(DIRS) clean all
+.PHONY: $(DIRS) clean all tests $(foreach dir, $(DIRS), $(dir)-clean)
 

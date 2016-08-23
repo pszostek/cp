@@ -1,6 +1,9 @@
-all: xed.py _xed.so tests
+all: xed.py _xed.so tests_build
 
 tests:
+	cd tests && ./run.sh
+
+tests_build:
 	$(MAKE) -C tests
 
 _xed.so: xed_disass.c xed_wrap.cxx xed_disass.h
@@ -18,7 +21,7 @@ xed-ex2: xed-ex2.o
 xed-ex2.o: xed-ex2.cpp
 	g++ -fopenmp -I../include -c @<	
 
-.PHONY: clean tests
+.PHONY: clean tests_build tests
 
 clean:
 	rm -rf xed-ex2 xed-ex2.o xed_wrap.cxx _xed.so xed.py *.pyc *.o xed_bb_chop xed_bb_chop2
