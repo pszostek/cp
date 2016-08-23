@@ -23,7 +23,7 @@
 static int qcomp(const void *a, const void *b) { return (((bb_t *)a)->addr)-(((bb_t *)b)->addr); }
 
 // this function checks if the elf file is the kernel
-// it does so by checking for a __ksymtab section
+// it does so by checking for a .data..percpu section
 static bool elffile_is_kernel(char *elf_data) {
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -35,7 +35,7 @@ static bool elffile_is_kernel(char *elf_data) {
 
     // iterate over sections
     for (unsigned i=0; i<elf_hdr->e_shnum; i++)
-        if(!strcmp(&strtab[elf_shdr[i].sh_name], "__ksymtab")) return true;
+        if(!strcmp(&strtab[elf_shdr[i].sh_name], ".data..percpu")) return true;
 
     return false;
 }

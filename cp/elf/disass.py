@@ -231,6 +231,8 @@ def get_basic_block(elffile, offset, to=None):
        # print('base %d, ifbb %d' % (bb.base, bb.is_finished_by_branch()))
         if bb.size == 0:
             chunk_size *= 2
+            if chunk_size > 1000000000:
+                raise IOError("You are dumb. This is not going to work. You probably gave me wrong addresses.")
         #elif not bb.is_finished_by_branch():
         #    chunk_size += 2
         else:
