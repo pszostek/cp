@@ -40,6 +40,22 @@ static bool elffile_is_kernel(char *elf_data) {
     return false;
 }
 
+static int get_section_id_by_name(char *elf_data, const char *search_name) {
+    Elf64_Ehdr *elf_hdr;
+    Elf64_Shdr *elf_shdr;
+    char *strtab;
+
+    elf_hdr = (Elf64_Ehdr *)elf_data;
+    elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+    strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
+
+    // iterate over sections
+    for (int i=0; i<elf_hdr->e_shnum; i++)
+        if(!strcmp(&strtab[elf_shdr[i].sh_name], search_name)) return i;
+
+    return -1;
+}
+
 static inline int32_t get_symtab_idx(char* elf_data) {
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -157,14 +173,15 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
 
 
 // TODO: handle System.map stashed in /tmp/vmlinux.symbols
+// Must be called after get_sections_info()
 static void get_symbols_info(char* elf_data, 
-        std::vector<unsigned long long>& elf_symbol_bases, 
+        std::vector<unsigned long long>& elf_symbol_poff, 
         std::vector<unsigned long long>& elf_symbol_sizes,
         std::vector<unsigned long long>& elf_symbol_secids) {
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
     #ifdef DEBUG
-    printf("Get Symbols Info called; pointers: elf_data@0x%lx, elf_symbol_bases@0x%lx, elf_symbol_sizes@0x%lx\n", elf_data, elf_symbol_bases, elf_symbol_sizes);
+    printf("Get Symbols Info called; pointers: elf_data@0x%lx, elf_symbol_poff@0x%lx, elf_symbol_sizes@0x%lx\n", elf_data, elf_symbol_poff, elf_symbol_sizes);
     printf("This file is of type %d, (RELOC: %s)\n", elf_hdr->e_type, elf_hdr->e_type == ET_REL ? "True" : "False");
     #endif
 
@@ -185,17 +202,24 @@ static void get_symbols_info(char* elf_data,
     printf("%7s %-40s %-14s %-14s %-s\n", "Secn ID", "Symbol name", "offset", "last byte", "size (hex)");
     #endif
 
-    // this is an ugly patch but time gives us no choice
+    // this is an ugly patch but time gives us no choice. look only for "text" symbols
+    // possibly some symbols will be forcibly assigned to the .text section which might cause problems
     if (elffile_is_kernel(elf_data)) {
         FILE *f = fopen("/tmp/vmlinux.symbols", "r");
         unsigned long long addr = 0, prev_addr = 0;
         unsigned char type;
         char name[1024];
         unsigned long long count = 0;
+        unsigned long long local_vbase = 0;
+        int text_section_id = get_section_id_by_name(elf_data, ".text");
+        unsigned long long text_section_poff = elf_shdr[text_section_id].sh_offset;
 
         for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
 	    fscanf(f, "%lx %c %s", &addr, &type, name);
-            elf_symbol_bases[symidx] = addr;
+            // take the physical address of the first symbol as the base
+	    if(symidx == 0) local_vbase = addr - text_section_poff;
+//            elf_symbol_poff[symidx] = addr;
+            elf_symbol_poff[symidx] = addr - local_vbase;
             elf_symbol_sizes[symidx] = 1;
             elf_symbol_secids[symidx] = 0xff;
         }
@@ -205,23 +229,25 @@ static void get_symbols_info(char* elf_data,
         // (sizes are heuristically determined to be the distance to the next non-aliased symbol)
         for(signed symidx = symtab_entries - 2; symidx >= 0; symidx--) {
             // if aliased, inherit the size that's already been calculated
-            if(elf_symbol_bases[symidx] == elf_symbol_bases[symidx+1]) {
+            if(elf_symbol_poff[symidx] == elf_symbol_poff[symidx+1]) {
                 elf_symbol_sizes[symidx] = elf_symbol_sizes[symidx+1];
                 continue;
             }
             // otherwise calculate distance
-            elf_symbol_sizes[symidx] = elf_symbol_bases[symidx+1] - elf_symbol_bases[symidx];
+            elf_symbol_sizes[symidx] = elf_symbol_poff[symidx+1] - elf_symbol_poff[symidx];
         }
         
         #ifdef DEBUG
         for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
-            printf("%7d %-30s 0x%-14lx 0x%-14lx %-ld (0x%-x)\n",
+            printf("%7d %-30s %-14p %-14p %-ld (0x%-x) (VIRT: %p-%p)\n",
                 elf_symbol_secids[symidx], // bogus
                 NULL, // we don't know the names anymore
-                elf_symbol_bases[symidx],
-                elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] -1,
+                elf_symbol_poff[symidx],
+                elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] -1,
                 elf_symbol_sizes[symidx],
-                elf_symbol_sizes[symidx]);
+                elf_symbol_sizes[symidx],
+                elf_symbol_poff[symidx] + local_vbase,
+                elf_symbol_poff[symidx] + local_vbase + elf_symbol_sizes[symidx] -1);
         #endif
         }
 
@@ -243,17 +269,20 @@ static void get_symbols_info(char* elf_data,
             // Internally defined symbol
             if(symbol->st_size == 0) //omit 0-sized functions, e.g. call_gmon_start
                 continue;
-            elf_symbol_bases[symidx] = symbol->st_value;
+            elf_symbol_poff[symidx] = symbol->st_value - elf_shdr[symbol->st_shndx].sh_addr + elf_shdr[symbol->st_shndx].sh_offset;
             elf_symbol_sizes[symidx] = symbol->st_size;
             elf_symbol_secids[symidx] = symbol->st_shndx;
             #ifdef DEBUG
-            printf("%7d %-40s 0x%-14lx 0x%-14lx %-ld (0x%-x)\n",
+//            printf("%7d %-40s 0x%-14lx 0x%-14lx %-ld (0x%-x)\n",
+            printf("%7d %-30s %-14p %-14p %-ld (0x%-lx) (VIRT: %p-%p)\n",
                 symbol->st_shndx,
                 &strtab[symbol->st_name],
-                symbol->st_value,
-                symbol->st_value+symbol->st_size-1,
+                elf_symbol_poff[symidx],
+                elf_symbol_poff[symidx]+elf_symbol_sizes[symidx]-1,
                 symbol->st_size,
-                symbol->st_size);
+                symbol->st_size,
+                symbol->st_value,
+                symbol->st_value+symbol->st_size-1);
             #endif
         }
     }
@@ -275,7 +304,7 @@ static void get_sections_info(char* elf_data,
     strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
 
 #ifdef DEBUG
-    printf("\t%-4s %-25s %-10s %12s %-16s\n", "ID", "Section name", "offset", "size", "VMA");
+    printf("\t%-4s %-25s %-10s %12s %-16s\n", "ID", "Section name", "offset in file", "size", "VMA");
 #endif
 
     for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
@@ -350,52 +379,65 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     // harvest addresses from ELF section boundaries
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         if(elf_section_sizes[secidx] > 0) {
-            if (elf_hdr->e_type != ET_REL) {
+//            if (elf_hdr->e_type != ET_REL) {
+            if (elf_hdr->e_type != ET_REL || true) {
                 addrs.insert(elf_section_poff[secidx]);
                 addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] );
                 end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
                 #ifdef DEBUG
                 printf("[sec] S 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx]);
                 printf("[sec] E 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
+                printf("[sec] S PH %p VIRT %p\n", 
+                    elf_section_poff[secidx] + elf_section_sizes[secidx], 
+                    elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]);
+                printf("[sec] E PH %p VIRT %p\n", 
+                    elf_section_poff[secidx] + elf_section_sizes[secidx] - 1,
+                    elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]);
                 #endif
             } else {
+                // TODO: remove, this won't be needed anymore
                 addrs.insert(0);
                 addrs.insert(elf_section_sizes[secidx]);
                 end_addrs.insert(elf_section_sizes[secidx] - 1);
                 #ifdef DEBUG
-                printf("[sec] S 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx]);
-                printf("[sec] E 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx] - 1);            
+                printf("XXX DEL [sec] S 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx]);
+                printf("XXX DEL [sec] E 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx] - 1);            
                 #endif
                                                                                 
             }
         }
     }
 
-    unsigned long long binary_base = get_binary_base(elf_data);
+//    unsigned long long binary_base = get_binary_base(elf_data);
     int16_t symtab_idx = get_symtab_idx(elf_data);
     uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
-    std::vector<unsigned long long> elf_symbol_bases(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_poff(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_secids(number_of_symbols, 0xffffffff);
 
-    get_symbols_info(elf_data, elf_symbol_bases, elf_symbol_sizes, elf_symbol_secids);
+    get_symbols_info(elf_data, elf_symbol_poff, elf_symbol_sizes, elf_symbol_secids);
 
     // harvest addresses from ELF symbol boundaries
     for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
         if((elf_hdr->e_type == ET_REL) && (elf_symbol_secids[symidx] != elf_section_ids[TEXT]))
             continue;
         if(elf_symbol_sizes[symidx] > 0) {
-            addrs.insert(elf_symbol_bases[symidx] - binary_base);
+//            addrs.insert(elf_symbol_poff[symidx] - binary_base);
+            addrs.insert(elf_symbol_poff[symidx]);
 #ifdef DEBUG
-//            printf("sym start 0x%lx\n", elf_symbol_bases[symidx] - binary_base);
+//            printf("sym start 0x%lx\n", elf_symbol_poff[symidx] - binary_base);
 #endif
-            addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
-            end_addrs.insert(elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
+//            addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);
+//            end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
+            addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);
+            end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);
 #ifdef DEBUG
-            printf("[sym] S 0x%lx\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);     
-            printf("[sym] E 0x%lx\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
-//            if (elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
-//            printf("sym end 0x%lx\n", elf_symbol_bases[symidx] + elf_symbol_sizes[symidx] - binary_base);
+//            printf("[sym] S PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);     
+//            printf("[sym] E PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
+            printf("[sym] S PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);     
+            printf("[sym] E PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);            
+//            if (elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
+//            printf("sym end 0x%lx\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);
 #endif
         }
     }
@@ -418,18 +460,19 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         unsigned long long section_poff = elf_section_poff[section];
         unsigned long long decode_window_start = section_poff;
         unsigned long long section_len = elf_section_sizes[section];
+        unsigned long long section_vma = elf_section_vmas[section];
         
         // if it is a REL type, heuristically adjust addresses coming out, assuming the section base as 0
-        unsigned long long rel_adjustment = elf_hdr->e_type == ET_REL ? section_poff : 0;
+//        unsigned long long rel_adjustment = elf_hdr->e_type == ET_REL ? section_poff : 0;
 
         // the symbol/line physical offset + this adjustment = symbol/line VMA
-        unsigned long long global_adjustment = 0; // TODO
+//        unsigned long long global_adjustment = 0; // TODO
         
         #ifdef DEBUG
-        printf("Decoding section 0x%lx-0x%lx (length: %d). ", section_poff, section_poff + section_len - 1, section_len);
-        printf("The module %s of type REL, assuming rel_adjustment of -0x%lx bytes\n", 
-            elf_hdr->e_type == ET_REL ? "IS" : "is NOT",
-            rel_adjustment);
+        printf("Decoding section %p-%p (length: %d). ", section_poff, section_poff + section_len - 1, section_len);
+//        printf("The module %s of type REL, assuming rel_adjustment of -0x%lx bytes\n", 
+//            elf_hdr->e_type == ET_REL ? "IS" : "is NOT",
+//            rel_adjustment);
         #endif
         
         while(decode_window_start < section_poff+section_len) { //decode the whole section
@@ -447,24 +490,29 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                   #endif
                   if(terminates_bb(xedd)) {
                       jump_target = xed_decoded_inst_get_branch_displacement(xedd) ?
-                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len - rel_adjustment:
+//                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len - rel_adjustment:
+                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len:
                           0;
                       #ifdef DEBUG
                       if (jump_target == 0) {
                        char* buffer = (char*) malloc(512);
                         xed_decoded_inst_dump(xedd, buffer, 512);
                         printf("%s\n", buffer);
-                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start - rel_adjustment, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len-rel_adjustment);
+//                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start - rel_adjustment, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len-rel_adjustment);
+                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
                       }
                       #endif
 
-                      addrs.insert(decode_window_start + cur_inst_len - rel_adjustment); //next bb after the current one
-                      end_addrs.insert(decode_window_start + cur_inst_len - rel_adjustment - 1); // last byte of the current instruction
+//                      addrs.insert(decode_window_start + cur_inst_len - rel_adjustment); //next bb after the current one
+//                      end_addrs.insert(decode_window_start + cur_inst_len - rel_adjustment - 1); // last byte of the current instruction
+                      addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
+                      end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
 
                       #ifdef DEBUG
-                      printf("[jmp] S 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment);
-                      printf("[jmp] E 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment - 1);
-//                      if(decode_window_start + cur_inst_len - 1 == 0x108c0) printf("POINT3: ins\n");
+//                      printf("[jmp] S 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment);
+//                      printf("[jmp] E 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment - 1);
+                      printf("[jmp] S PH %p VIRT %p\n", decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma);
+                      printf("[jmp] E PH %p VIRT %p\n", decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - section_poff + section_vma - 1);
                       #endif
 
                       if (jump_target && jump_target < 0x4000000000) {
@@ -473,7 +521,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                           #ifdef DEBUG
                           printf("[tgt] S 0x%lx\n", jump_target);
                           printf("[tgt] E 0x%lx\n", jump_target - 1);
-//                          if(jump_target - 1 == 0x108c0) printf("POINT4: ins, 0x%lx\n", jump_target); 
+                          printf("[tgt] S PH %p VIRT %p\n", jump_target, jump_target - section_poff + section_vma);
+                          printf("[tgt] E PH %p VIRT %p\n", jump_target - 1, jump_target - 1 - section_poff + section_vma);                                                    
                           #endif
                       }
                   }
