@@ -1,5 +1,8 @@
 all: demangle.py _demangle.so
 
+tests:
+	python demangle_test.py
+
 _demangle.so: demangle.h demangle_wrap.c
 	    gcc -fPIC demangle_wrap.c -I/data/andrzejn/local/include/python2.7 -I/usr/local/include/python2.7 -I. -I.. -I../include -L../../lib -liberty -shared -o _demangle.so
 

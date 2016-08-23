@@ -5,3 +5,12 @@ pintools
 chromiumos-wide-profiling
 *.o
 *.pyc
+*.so
+*_wrap.c
+*_wrap.cxx
+.*.swp
+.__afs*
+bin
+include/python2.7
+lib/python2.7
+share
