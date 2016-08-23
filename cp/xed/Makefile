@@ -1,7 +1,7 @@
 all: xed.py _xed.so tests_build
 
 tests:
-	cd tests && ./run.sh
+	make -C tests tests
 
 tests_build:
 	$(MAKE) -C tests
