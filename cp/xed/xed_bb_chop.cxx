@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-//#define DEBUG
+#define DEBUG
 //#define VERBOSE
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15
@@ -175,6 +175,7 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
 // Must be called after get_sections_info()
 static void get_symbols_info(char* elf_data, 
         std::vector<unsigned long long>& elf_symbol_poff, 
+        std::vector<unsigned long long>& elf_symbol_vaddr,         
         std::vector<unsigned long long>& elf_symbol_sizes,
         std::vector<unsigned long long>& elf_symbol_secids) {
     
@@ -224,6 +225,7 @@ static void get_symbols_info(char* elf_data,
 	    if(symidx == 0) local_vbase = addr - text_section_poff;
 //            elf_symbol_poff[symidx] = addr;
             elf_symbol_poff[symidx] = addr - local_vbase;
+            elf_symbol_vaddr[symidx] = addr;
             elf_symbol_sizes[symidx] = 1;
             elf_symbol_secids[symidx] = 0xff;
         }
@@ -273,6 +275,7 @@ static void get_symbols_info(char* elf_data,
             if(symbol->st_size == 0) //omit 0-sized functions, e.g. call_gmon_start
                 continue;
             elf_symbol_poff[symidx] = symbol->st_value - elf_shdr[symbol->st_shndx].sh_addr + elf_shdr[symbol->st_shndx].sh_offset;
+            elf_symbol_vaddr[symidx] = symbol->st_value;
             elf_symbol_sizes[symidx] = symbol->st_size;
             elf_symbol_secids[symidx] = symbol->st_shndx;
             #ifdef DEBUG
@@ -346,6 +349,12 @@ static void get_sections_info(char* elf_data,
     }
 }
 
+// oops.
+struct pair_hash {
+    inline std::size_t operator()(const std::pair<unsigned long long, unsigned long long> &v) const {
+        return v.first*31+v.second;
+    }
+};
 
 /* This function attempts to track BB boundaries according to the blessed Levinthal's method.
  * It keeps a set of starting addresses coming from various logical sources:
@@ -372,6 +381,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     std::unordered_set<unsigned long long> addrs; //this set will keep all the starting addresses of BB
     std::unordered_set<unsigned long long> end_addrs; //this set will keep all the presumed ending addresses of BB
 
+    std::unordered_set<std::pair<unsigned long long, unsigned long long>, pair_hash> addrs_p; // need to store PH and VIRT addresses
+    std::unordered_set<std::pair<unsigned long long, unsigned long long>, pair_hash> end_addrs_p; // as above but for BB end addresses
+
     std::vector<unsigned long long> elf_section_poff(NUMBER_OF_SECTIONS, 0);
     std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
     std::vector<unsigned long long> elf_section_ids(NUMBER_OF_SECTIONS, 0);
@@ -385,8 +397,11 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 //            if (elf_hdr->e_type != ET_REL) {
 //            if (elf_hdr->e_type != ET_REL || true) {
                 addrs.insert(elf_section_poff[secidx]);
-                addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] );
+                addrs_p.insert(std::make_pair(elf_section_poff[secidx], elf_section_poff[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
+                addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx]);
+                addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx], elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
                 end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
+                end_addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]));
                 #ifdef DEBUG
                 printf("[sec] S 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx]);
                 printf("[sec] E 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
@@ -415,10 +430,11 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     int16_t symtab_idx = get_symtab_idx(elf_data);
     uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
     std::vector<unsigned long long> elf_symbol_poff(number_of_symbols, 0UL);
+    std::vector<unsigned long long> elf_symbol_vaddr(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_secids(number_of_symbols, 0xffffffff);
 
-    get_symbols_info(elf_data, elf_symbol_poff, elf_symbol_sizes, elf_symbol_secids);
+    get_symbols_info(elf_data, elf_symbol_poff, elf_symbol_vaddr, elf_symbol_sizes, elf_symbol_secids);
 
     // harvest addresses from ELF symbol boundaries
     for(unsigned symidx = 0; symidx < number_of_symbols; ++symidx) {
@@ -427,13 +443,13 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         if(elf_symbol_sizes[symidx] > 0) {
 //            addrs.insert(elf_symbol_poff[symidx] - binary_base);
             addrs.insert(elf_symbol_poff[symidx]);
-#ifdef DEBUG
-//            printf("sym start 0x%lx\n", elf_symbol_poff[symidx] - binary_base);
-#endif
+            addrs_p.insert(std::make_pair(elf_symbol_poff[symidx], elf_symbol_vaddr[symidx]));            
 //            addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);
 //            end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
             addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);
+            addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]));
             end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);
+            end_addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1));
 #ifdef DEBUG
 //            printf("[sym] S PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);     
 //            printf("[sym] E PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
@@ -472,7 +488,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 //        unsigned long long global_adjustment = 0; // TODO
         
         #ifdef DEBUG
-        printf("Decoding section %p-%p (length: %d). ", section_poff, section_poff + section_len - 1, section_len);
+        printf("Decoding section %p-%p (length: %d).\n", section_poff, section_poff + section_len - 1, section_len);
 //        printf("The module %s of type REL, assuming rel_adjustment of -0x%lx bytes\n", 
 //            elf_hdr->e_type == ET_REL ? "IS" : "is NOT",
 //            rel_adjustment);
@@ -509,7 +525,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 //                      addrs.insert(decode_window_start + cur_inst_len - rel_adjustment); //next bb after the current one
 //                      end_addrs.insert(decode_window_start + cur_inst_len - rel_adjustment - 1); // last byte of the current instruction
                       addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
+                      addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma));
                       end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
+                      end_addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma));
 
                       #ifdef DEBUG
 //                      printf("[jmp] S 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment);
@@ -520,7 +538,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
                       if (jump_target && jump_target < 0x4000000000) {
                           addrs.insert(jump_target);
+                          addrs_p.insert(std::make_pair(jump_target, jump_target - section_poff + section_vma));
                           end_addrs.insert(jump_target - 1);
+                          end_addrs_p.insert(std::make_pair(jump_target - 1, jump_target - 1 - section_poff + section_vma));
                           #ifdef DEBUG
                           printf("[tgt] S 0x%lx\n", jump_target);
                           printf("[tgt] E 0x%lx\n", jump_target - 1);
@@ -546,30 +566,40 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     #ifdef DEBUG
     printf("BEGIN ADDRESS DUMP\n");
     #endif
-    std::vector<unsigned long> ret(addrs.size());    
+    std::vector<unsigned long long> ret(addrs.size());
+    std::vector<std::pair<unsigned long long, unsigned long long>> ret_p(addrs_p.begin(), addrs_p.end());
     std::copy(addrs.begin(), addrs.end(), ret.begin());
+//    std::copy(addrs_p.begin(), addrs_p.end(), ret_p.begin());
     sort(ret.begin(), ret.end());
+    sort(ret_p.begin(), ret_p.end());
 
-    std::vector<unsigned long> end_ret(end_addrs.size());    
+    std::vector<unsigned long long> end_ret(end_addrs.size());
+    std::vector<std::pair<unsigned long long, unsigned long long>> end_ret_p(end_addrs_p.begin(), end_addrs_p.end());
     std::copy(end_addrs.begin(), end_addrs.end(), end_ret.begin());
+//    std::copy(end_addrs_p.begin(), end_addrs_p.end(), end_ret_p.begin());
     sort(end_ret.begin(), end_ret.end());
+    sort(end_ret_p.begin(), end_ret_p.end());
 
 //    std::vector<bbnowak_t> ret_blocks(std::max(addrs.size(), end_addrs.size()));
     std::vector<bbnowak_t> ret_blocks;
 //    printf("Captured %d start addresses, %d end addresses\n", ret.size(), end_ret.size());
-    int i=0, j=0, ret_s = ret.size(), end_ret_s = end_ret.size();
+    int i=0, j=0;
+    int ret_s = ret.size(), end_ret_s = end_ret.size();
+    int ret_p_s = ret_p.size(), end_ret_p_s = end_ret_p.size();
     unsigned long long sa = -1, ea = -1, sa_next = -1;
+    unsigned long long sa_v = -1, ea_v = -1; // virtual correspondents
     // AN: todo: last block is chopped off, add boundary condition
+
+    /*
     ea = end_ret[j];
     while(i < (ret_s-1)) {
       bbnowak_t *current_bb = new bbnowak_t;
       current_bb->start = 0; current_bb->end = 0; current_bb->len = 0;
+      current_bb->vstart = 0; current_bb->vend = 0;
       sa = ret[i];
       sa_next = ret[i+1];
-//      printf("\n0x%lx,", sa);
       current_bb->start = sa;
       while(ea < sa_next && j < end_ret_s) {
-//        printf("0x%lx,%d,", ea, ea-sa);
         current_bb->end = ea;
         current_bb->len = ea == 0 ? 0 : ea-sa+1;
         j++;
@@ -578,7 +608,29 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
       ret_blocks.push_back(*current_bb); // WHATEVER
       i++;
     }
-//    printf("\n\n");
+    */
+
+    ea = end_ret_p[j].first;
+    while(i < (ret_p_s-1)) {
+      bbnowak_t *current_bb = new bbnowak_t;
+      current_bb->start = 0; current_bb->end = 0; current_bb->len = 0;
+      current_bb->vstart = 0; current_bb->vend = 0;
+      sa = ret_p[i].first;
+      sa_v = ret_p[i].second;
+      sa_next = ret_p[i+1].first;
+      current_bb->start = sa;
+      current_bb->vstart = sa_v;
+      while(ea < sa_next && j < end_ret_p_s) {
+        current_bb->end = ea;
+        current_bb->vend = ea_v;
+        current_bb->len = ea == 0 ? 0 : ea-sa+1;
+        j++;
+        ea = end_ret_p[j].first;
+        ea_v = end_ret_p[j].second;
+      };
+      ret_blocks.push_back(*current_bb); // WHATEVER
+      i++;
+    }
 
 /*    
     printf("BEGIN ADDRS ===================================\n");
