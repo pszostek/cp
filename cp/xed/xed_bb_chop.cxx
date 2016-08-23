@@ -172,14 +172,17 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
 }
 
 
-// TODO: handle System.map stashed in /tmp/vmlinux.symbols
 // Must be called after get_sections_info()
 static void get_symbols_info(char* elf_data, 
         std::vector<unsigned long long>& elf_symbol_poff, 
         std::vector<unsigned long long>& elf_symbol_sizes,
         std::vector<unsigned long long>& elf_symbol_secids) {
+    
     Elf64_Ehdr *elf_hdr = (Elf64_Ehdr *)elf_data;
     Elf64_Shdr *elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+
+//    Elf64_Shdr *symtab = &elf_shdr[symtab_section_idx]; 
+
     #ifdef DEBUG
     printf("Get Symbols Info called; pointers: elf_data@0x%lx, elf_symbol_poff@0x%lx, elf_symbol_sizes@0x%lx\n", elf_data, elf_symbol_poff, elf_symbol_sizes);
     printf("This file is of type %d, (RELOC: %s)\n", elf_hdr->e_type, elf_hdr->e_type == ET_REL ? "True" : "False");
@@ -204,6 +207,7 @@ static void get_symbols_info(char* elf_data,
 
     // this is an ugly patch but time gives us no choice. look only for "text" symbols
     // possibly some symbols will be forcibly assigned to the .text section which might cause problems
+
     if (elffile_is_kernel(elf_data)) {
         FILE *f = fopen("/tmp/vmlinux.symbols", "r");
         unsigned long long addr = 0, prev_addr = 0;
@@ -248,9 +252,8 @@ static void get_symbols_info(char* elf_data,
                 elf_symbol_sizes[symidx],
                 elf_symbol_poff[symidx] + local_vbase,
                 elf_symbol_poff[symidx] + local_vbase + elf_symbol_sizes[symidx] -1);
-        #endif
         }
-
+        #endif
         return;
     }
     
@@ -380,7 +383,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         if(elf_section_sizes[secidx] > 0) {
 //            if (elf_hdr->e_type != ET_REL) {
-            if (elf_hdr->e_type != ET_REL || true) {
+//            if (elf_hdr->e_type != ET_REL || true) {
                 addrs.insert(elf_section_poff[secidx]);
                 addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] );
                 end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
@@ -394,7 +397,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                     elf_section_poff[secidx] + elf_section_sizes[secidx] - 1,
                     elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]);
                 #endif
-            } else {
+/*            } else {
                 // TODO: remove, this won't be needed anymore
                 addrs.insert(0);
                 addrs.insert(elf_section_sizes[secidx]);
@@ -404,7 +407,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                 printf("XXX DEL [sec] E 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx] - 1);            
                 #endif
                                                                                 
-            }
+            }*/
         }
     }
 
