@@ -95,6 +95,8 @@ def get_inst_lists(elffile, addrs_list):
             inst_length = inst.get_length()
             #noperands = xed.xed_decoded_inst_noperands(inst)
             noperands = inst.get_number_of_operands()
+
+            #op_width = xed.xed_decoded_inst_get_operand_width(inst)
             #unaligned = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_UNALIGNED)
             #simd_scalar = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_SCALAR)
             #packed_alignment = xed.xed_decoded_inst_get_attribute(inst, xed.XED_ATTRIBUTE_SIMD_PACKED_ALIGNMENT)
@@ -125,6 +127,11 @@ def get_inst_lists(elffile, addrs_list):
                 inst.get_category(),
                 inst.get_extension(),
                 noperands,
+                inst.reads_memory(),
+                inst.writes_memory(),
+                inst.is_simd_scalar(),
+                inst.is_simd_packed(),
+                inst.data_type_size(),
                 #unaligned,
                 #simd_scalar,
                 #packed_alignment,
@@ -132,15 +139,16 @@ def get_inst_lists(elffile, addrs_list):
                 #prefetch,
                 #scalable,
                 operands[0].type,
-                operands[0].width,
-                operands[0].name,
+                #operands[0].width,
+                #operands[0].name,
                 operands[0].action,
-                operands[0].elem,
+                #operands[0].elem,
                 operands[1].type,
-                operands[1].width,
-                operands[1].name,
-                operands[1].action,
-                operands[1].elem))
+                #operands[1].width,
+                #operands[1].name,
+                operands[1].action#,
+                #operands[1].elem
+                ))
             offset_inside_bb += inst_length
 
     index = pd.MultiIndex.from_tuples(index_tuples, names=[ 'symbol',
@@ -156,6 +164,11 @@ def get_inst_lists(elffile, addrs_list):
             'XED_CATEGORY',
             'XED_EXTENSION',
             'noperands',
+            'reads_mem',
+            'writes_mem',
+            'is_scalar',
+            'is_packed',
+            'data_size',
             #'unaligned',
             #'simd_scalar',
             #'packed_alignment',
@@ -163,15 +176,16 @@ def get_inst_lists(elffile, addrs_list):
             #'prefetch',
             #'scalable',
             'op0.type',
-            'op0.width',
-            'op0.name',
+            #'op0.width',
+            #'op0.name',
             'op0.action',
-            'op0.elem',
+            #'op0.elem',
             'op1.type',
-            'op1.width',
-            'op1.name',
-            'op1.action',
-            'op1.elem'])
+            #'op1.width',
+            #'op1.name',
+            'op1.action'#,
+            #'op1.elem'
+            ])
     return ret_data_frame
 
 
