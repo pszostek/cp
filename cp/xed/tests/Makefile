@@ -1,6 +1,9 @@
 #all: xed_disass_test xed_bb_chop_test xed_bb_chop_test2
 all: xed_disass_test xed_bb_chop_test3
 
+tests:
+		./run.sh
+
 xed_disass_test: ../xed_disass.c ../xed_disass.h xed_disass_test.c
 		gcc -ggdb -O3 -std=c99 -o xed_disass_test ../xed_disass.c xed_disass_test.c -I../../include -I.. -L../../../lib -lxed
 
