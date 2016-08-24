@@ -62,6 +62,22 @@ static int get_section_id_by_name(char *elf_data, const char *search_name) {
     return -1;
 }
 
+static inline bool has_symtab(char* elf_data) {
+    Elf64_Ehdr *elf_hdr;
+    Elf64_Shdr *elf_shdr;
+
+    elf_hdr = (Elf64_Ehdr *)elf_data;
+    elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+
+    for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
+                 if(elf_shdr[i].sh_type == SHT_SYMTAB) {
+                     return true;
+                 }
+    }
+    return false;
+}
+        
+
 static inline int32_t get_symtab_idx(char* elf_data) {
     Elf64_Ehdr *elf_hdr;
     Elf64_Shdr *elf_shdr;
@@ -170,6 +186,23 @@ static std::pair<uint64_t, uint64_t> get_strtab_info(char* elf_data) {
     return std::make_pair(0L, 0L);
 }
 
+static std::pair<uint64_t, uint64_t> get_dynstr_info(char* elf_data) {
+    // http://stackoverflow.com/questions/15352547/get-elf-sections-offsets
+    Elf64_Ehdr *elf_hdr;
+    Elf64_Shdr *elf_shdr;
+    char *strtab;
+
+    elf_hdr = (Elf64_Ehdr *)elf_data;
+    elf_shdr = (Elf64_Shdr *)(elf_data + elf_hdr->e_shoff);
+    strtab = elf_data + elf_shdr[elf_hdr->e_shstrndx].sh_offset;
+
+    for (unsigned i=0; i<elf_hdr->e_shnum; i++) {
+        if(!strcmp(&strtab[elf_shdr[i].sh_name], ".dynstr")) {
+            return std::make_pair(elf_shdr[i].sh_offset, elf_shdr[i].sh_size);
+        }
+    }
+    return std::make_pair(0L, 0L);
+}
 
 // Must be called after get_sections_info()
 static void get_symbols_info(char* elf_data, 
@@ -186,9 +219,17 @@ static void get_symbols_info(char* elf_data,
     DBG("Get Symbols Info called; pointers: elf_data@0x%lx, elf_symbol_poff@0x%lx, elf_symbol_sizes@0x%lx\n", elf_data, &elf_symbol_poff, &elf_symbol_sizes);
     DBG("This file is of type %d, (RELOC: %s)\n", elf_hdr->e_type, elf_hdr->e_type == ET_REL ? "True" : "False");
 
-    uint64_t strtab_offset, strtab_size;
-    std::tie(strtab_offset, strtab_size) = get_strtab_info(elf_data); // TODO: it won't work for the kernel
-    char *strtab = elf_data + strtab_offset;
+
+    char *strtab;
+    if(has_symtab(elf_data)) {
+        uint64_t strtab_offset, strtab_size;
+        std::tie(strtab_offset, strtab_size) = get_strtab_info(elf_data); // TODO: it won't work for the kernel
+        strtab = elf_data + strtab_offset;
+    } else { // there is no .symtab, we rely on .dynsym
+        uint64_t dynstr_offset, dynstr_size;
+        std::tie(dynstr_offset, dynstr_size) = get_dynstr_info(elf_data);
+        strtab = elf_data + dynstr_offset;
+    }
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     // AN: remove crashes when symbols not found or return is -1? (not sure if this is right)
