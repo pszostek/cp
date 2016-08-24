@@ -635,6 +635,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
       current_bb->vstart = 0; current_bb->vend = 0;
       sa = ret_p[i].first;
       sa_v = ret_p[i].second;
+      ea_v = end_ret_p[j].second;
       sa_next = ret_p[i+1].first;
       current_bb->start = sa;
       current_bb->vstart = sa_v;

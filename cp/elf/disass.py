@@ -142,12 +142,12 @@ def get_inst_lists(elffile, addrs_list):
                 #operands[0].width,
                 #operands[0].name,
                 operands[0].action,
-                #operands[0].elem,
+                operands[0].elem,
                 operands[1].type,
                 #operands[1].width,
                 #operands[1].name,
-                operands[1].action#,
-                #operands[1].elem
+                operands[1].action,
+                operands[1].elem
                 ))
             offset_inside_bb += inst_length
 
@@ -179,12 +179,12 @@ def get_inst_lists(elffile, addrs_list):
             #'op0.width',
             #'op0.name',
             'op0.action',
-            #'op0.elem',
+            'op0.elem',
             'op1.type',
             #'op1.width',
             #'op1.name',
-            'op1.action'#,
-            #'op1.elem'
+            'op1.action',
+            'op1.elem'
             ])
     return ret_data_frame
 
