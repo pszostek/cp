@@ -453,8 +453,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 #ifdef DEBUG
 //            printf("[sym] S PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);     
 //            printf("[sym] E PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
-            printf("[sym] S PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);     
-            printf("[sym] E PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);            
+            printf("[sym] S PH %p VIRT %p\n", elf_symbol_poff[symidx], elf_symbol_vaddr[symidx]);
+            printf("[sym] S PH %p VIRT %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]);            
+            printf("[sym] E PH %p VIRT %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1);            
 //            if (elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
 //            printf("sym end 0x%lx\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);
 #endif
