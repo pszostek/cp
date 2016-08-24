@@ -18,6 +18,7 @@ class ELFFileError(Exception):
     def __init__(self, what):
         Exception.__init__(self, what)
 
+
 class ELFFile(ELFFile_):
     def __init__(self, filepath):
         self._path = filepath
@@ -273,6 +274,48 @@ class ELFFile(ELFFile_):
   #  def _offset_inside_segment(self, offset, segment):
   #      sh = segment.header
   #      return (offset >= sh['p_paddr']) and (offset < sh['p_paddr']+sh['p_filesz'])
+
+
+class Kernel(ELFFile):
+    def __init__(self, filepath, sysmap_filepath):
+        self._vaddr_to_sym = self._build_vaddr_to_sym(sysmap_filepath)
+        ELFFile.__init__(self, filepath)
+
+    def _build_vaddr_to_sym(self, sysmap_filepath):
+        ret = {}
+        with open(sysmap_filepath, 'r') as sysmap_fd:
+            for line in sysmap_fd.readlines():
+                (sym_vaddr, sym_type, sym_name) = line.split()
+                if sym_type not in set(['t', 'T']):
+                    continue
+                sym_vaddr = int(sym_vaddr, 16)
+                if sym_vaddr in ret:
+                    existing_sym = ret[sym_vaddr]
+                    concat_name = "%s:%s" % (existing_sym, sym_name)
+                    ret[sym_vaddr] = concat_name
+                else: # we see this address for the first time
+                    ret[sym_vaddr] = sym_name
+        return ret
+
+    def _build_symbol_tree(self):
+        from intervaltree import IntervalTree, Interval
+        #base = self._get_binary_base()
+        base = 0
+        intervals = [Interval(func.offset-base, func.offset+func.size-base, func.name) for func in self._iter_func() if func.size != 0]
+        return IntervalTree(intervals)
+
+    def _iter_func(self, symbols_iter=None):
+        sym_start_addrs = sorted(self._vaddr_to_sym.keys())
+        sym_boundaries = zip(sym_start_addrs[:-1], [a-1 for a in sym_start_addrs][1:])
+        sym_boundaries.append((sym_start_addrs[-1], sym_start_addrs[-1] + 0x1000)) # no idea where the last symbol ends
+
+        for (sym_start_addr, sym_end_addr) in sym_boundaries:
+                yield Func(name=self._vaddr_to_sym[sym_start_addr],
+                           mangled_name=self._vaddr_to_sym[sym_start_addr],
+                           offset=sym_start_addr,
+                           size=sym_end_addr-sym_start_addr+1)
+        raise StopIteration()
+
 
 if __name__ == "__main__":
     elf = ELFFile("/afs/cern.ch/user/p/paszoste/cp/simple-binary/a.out")

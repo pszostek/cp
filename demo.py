@@ -4,6 +4,29 @@ import cp.xed.xed as xed
 import cp.elf.addr2line as addr2line
 
 if __name__ == "__main__":
+    """
+    ffffffff81003200 t xen_load_gs_index
+    ffffffff81003230 t xen_io_delay
+    ffffffff81003240 t xen_apic_read <--
+    ffffffff81003250 t xen_apic_icr_read <--
+    ffffffff81003260 t xen_apic_wait_icr_idle <-- <--
+    ffffffff81003270 t xen_safe_apic_wait_icr_idle
+    ffffffff81003280 t xen_write_cr4
+    ffffffff810032a0 t xen_write_msr_safe
+    ffffffff81003330 t xen_restart
+    ffffffff81003360 t xen_emergency_restart
+    ffffffff81003390 t xen_machine_halt
+    """
+
+    # an example of kernel symbol name resolution
+    kernel = elf.Kernel("/tmp/vmlinux.elf", "/tmp/vmlinux.symbols")
+    for addr in [0xffffffff81003240,
+                 0xffffffff81003250,
+                 0xffffffff81003261,
+                 0xffffffff8100326f]:
+        symbol = kernel.get_symbol_by_offset(addr)
+        print(symbol)
+
     # this is a `good' binary with .symtab and DWARF
     binary = elf.ELFFile("./real_data/fullcms")
 
