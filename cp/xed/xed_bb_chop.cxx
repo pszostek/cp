@@ -221,7 +221,7 @@ static void get_symbols_info(char* elf_data,
 
         for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
 	    fscanf(f, "%lx %c %s", &addr, &type, name);
-            // take the physical address of the first symbol as the base
+            // take the physical address of the first symbol as the base - TODO - THIS WILL BREAK
 	    if(symidx == 0) local_vbase = addr - text_section_poff;
 //            elf_symbol_poff[symidx] = addr;
             elf_symbol_poff[symidx] = addr - local_vbase;
