@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     //cout << blocks.size() << endl;
     fprintf(outf, "bb,bb_end,bbv,bbv_end,len\n");
     for(auto i: blocks)
-        fprintf(outf, "0x%x,0x%x,0x%x,0x%x,%d\n", i.start, i.end, i.vstart, i.vend, i.len);
+        fprintf(outf, "0x%x,0x%x,0x%lx,0x%lx,%d\n", i.start, i.end, i.vstart, i.vend, i.len);
     fclose(outf);
     
     return 0;
