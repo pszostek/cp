@@ -15,13 +15,13 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define DEBUG
+//#define DEBUG
 //#define VERBOSE
 
 #ifdef DEBUG
     #define DBG(...) fprintf(stderr, __VA_ARGS__) 
 #else
-    #define DBG(msg)
+    #define DBG(...)
 #endif
 
 #define LONGEST_POSSIBLE_INSTRUCTION 15

@@ -6,9 +6,8 @@ from collections import namedtuple
 from pyelftools.elftools.elf.elffile import ELFFile as ELFFile_
 from pyelftools.elftools.elf.sections import Section
 from pyelftools.elftools.common.py3compat import bytes2str
-import disass
 
-Func = namedtuple("Func", ["name", "mangled_name", "offset", "size"])
+Func = namedtuple("Func", ["name", "mangled_name", "poff", "size"])
 
 if __package__ is None:
     from os import sys, path
@@ -125,13 +124,12 @@ class ELFFile(ELFFile_):
         #symtab = self._get_symbol_table()
         #return self._iter_func(symtab.iter_symbols())
         return self._iter_func() # it will get symtab or dynsym automatically
-        
+
     def get_symbol_text(self, name):
         if name not in self.get_symbol_names():
             raise ELFFileError('The file has no % symbol' % name)
         text_section_offset = self._get_text_offset()
         symbol = self.get_symbol_by_name(name)
-        print(symbol.name)
 
         # rewind the file to be at the symbol position
         symbol_size = symbol.entry["st_size"]
@@ -176,13 +174,14 @@ class ELFFile(ELFFile_):
 
     def get_inst_lists(self, addrs_list):
         """ A proxy method for a proper disassembly function"""
+        import disass  # this is imported only when we need to disassemble
         return disass.get_inst_lists(self, addrs_list)
 
-    def get_symbol_by_offset(self, offset):
+    def get_symbol_by_poff(self, offset):
         """
         Figures out name of the symbol for the given offset.
 
-        offset -- a number expressing the offset with substracted base
+        poff -- a number expressing the physical offset inside the ELF file
 
         Returns None or a string. None is returned when there is no corresponding symbol
         (e.g. the binary is stripped or the offset is malformed)
@@ -201,7 +200,7 @@ class ELFFile(ELFFile_):
     def has_symtab(self):
         symtab = self._get_symbol_table()
         return symtab is not None
-        
+
     def has_dynsym(self):
         dynsym = self._get_dynsym_table()
         return dynsym is not None
@@ -232,21 +231,22 @@ class ELFFile(ELFFile_):
                 symtab = self._get_symbol_table()
                 symbols_iter = symtab.iter_symbols()
             elif self.has_dynsym():
-                symtab = self._get_dynsym_table()
-                symbols_iter = symtab.iter_symbols()            
+                dynsym = self._get_dynsym_table()
+                symbols_iter = dynsym.iter_symbols()
             else:
                 raise StopIteration()
 
         for sym in symbols_iter:
-            if sym.entry['st_info']['type'] == 'STT_FUNC':
+            if sym.entry['st_info']['type'] == 'STT_FUNC' and sym['st_shndx'] is not 'SHN_UNDEF':
                 demangled_name = demangle.cplus_demangle(sym.name, 1)
                 if demangled_name is not None:
                     name = demangled_name
                 else:
                     name = sym.name
+                adj = self._symbol_to_poff_adj(sym)
                 yield Func(name=name,
                            mangled_name=sym.name,
-                           offset=sym.entry['st_value'],
+                           poff=sym.entry['st_value'] + adj,
                            size=sym.entry['st_size'])
         raise StopIteration()
 
@@ -256,32 +256,26 @@ class ELFFile(ELFFile_):
 
     def _build_symbol_tree(self):
         from intervaltree import IntervalTree, Interval
-        base = self._get_binary_base()
-        intervals = [Interval(func.offset-base, func.offset+func.size-base, func.name) for func in self._iter_func() if func.size != 0]
-#        print(intervals)
-#        print(IntervalTree(intervals))
+        # Interval expects addresses (first, one_after)
+        #for func in self._iter_func():
+        #    if func.size != 0:
+        #        print(func.name, hex(func.poff), hex(func.poff+func.size))
+        intervals = [Interval(func.poff, func.poff+func.size, func.name) for func in self._iter_func() if func.size != 0]
         return IntervalTree(intervals)
 
-    def _get_binary_base(self):
-        text = self.get_section_by_name(".text")
-        if text is None:
-            raise ELFFileError("Can't find base for the .text segment")
-        return abs(text['sh_addr'] - text['sh_offset']) # a new approach valid also for .ko files
-        # for segment in self.iter_segments():
-        #    if segment['p_type'] == "PT_LOAD" and segment['p_offset'] == 0:
-        #        return segment['p_vaddr']
-
-  #  def _offset_inside_segment(self, offset, segment):
-  #      sh = segment.header
-  #      return (offset >= sh['p_paddr']) and (offset < sh['p_paddr']+sh['p_filesz'])
+    def _symbol_to_poff_adj(self, symbol):
+        """ symbol is an elf.Symbol """
+        sym_section = self.get_section(symbol['st_shndx'])
+        adj = sym_section['sh_offset'] - sym_section['sh_addr']
+        return adj
 
 
 class Kernel(ELFFile):
     def __init__(self, filepath, sysmap_filepath):
-        self._vaddr_to_sym = self._build_vaddr_to_sym(sysmap_filepath)
         ELFFile.__init__(self, filepath)
+        self._poff_to_sym = self._build_poff_to_sym(sysmap_filepath)
 
-    def _build_vaddr_to_sym(self, sysmap_filepath):
+    def _build_poff_to_sym(self, sysmap_filepath):
         ret = {}
         with open(sysmap_filepath, 'r') as sysmap_fd:
             for line in sysmap_fd.readlines():
@@ -289,31 +283,42 @@ class Kernel(ELFFile):
                 if sym_type not in set(['t', 'T']):
                     continue
                 sym_vaddr = int(sym_vaddr, 16)
-                if sym_vaddr in ret:
-                    existing_sym = ret[sym_vaddr]
+                sym_poff = sym_vaddr + self._get_vaddr_to_poff_adj()
+                if sym_poff in ret: # oops, overlaping symbols..
+                    existing_sym = ret[sym_poff]
                     concat_name = "%s:%s" % (existing_sym, sym_name)
-                    ret[sym_vaddr] = concat_name
+                    ret[sym_poff] = concat_name
                 else: # we see this address for the first time
-                    ret[sym_vaddr] = sym_name
+                    ret[sym_poff] = sym_name
         return ret
 
     def _build_symbol_tree(self):
         from intervaltree import IntervalTree, Interval
-        #base = self._get_binary_base()
-        base = 0
-        intervals = [Interval(func.offset-base, func.offset+func.size-base, func.name) for func in self._iter_func() if func.size != 0]
+        intervals = [Interval(func.poff, func.poff+func.size, func.name) for func in self._iter_func() if func.size != 0]
         return IntervalTree(intervals)
 
-    def _iter_func(self, symbols_iter=None):
-        sym_start_addrs = sorted(self._vaddr_to_sym.keys())
-        sym_boundaries = zip(sym_start_addrs[:-1], [a-1 for a in sym_start_addrs][1:])
-        sym_boundaries.append((sym_start_addrs[-1], sym_start_addrs[-1] + 0x1000)) # no idea where the last symbol ends
+    def _get_vaddr_to_poff_adj(self):
+        from pyelftools.elftools.elf.constants import P_FLAGS
+        load_vaddr = None
+        for segment in self.iter_segments():
+            if segment['p_type'] == "PT_LOAD" and segment['p_flags'] == (P_FLAGS.PF_X | P_FLAGS.PF_R):
+                load_vaddr = segment['p_vaddr'];
+                break
+        if load_vaddr is None:
+            raise RuntimeError("Can't find a loadable program segment with r-x flags")
+        text = self.get_section_by_name(".text")
+        return -load_vaddr + text['sh_offset']
 
-        for (sym_start_addr, sym_end_addr) in sym_boundaries:
-                yield Func(name=self._vaddr_to_sym[sym_start_addr],
-                           mangled_name=self._vaddr_to_sym[sym_start_addr],
-                           offset=sym_start_addr,
-                           size=sym_end_addr-sym_start_addr+1)
+    def _iter_func(self, symbols_iter=None):
+        sym_start_poff = sorted(self._poff_to_sym.keys())
+        sym_poff_boundaries = zip(sym_start_poff[:-1], [a-1 for a in sym_start_poff][1:])
+        sym_poff_boundaries.append((sym_start_poff[-1], sym_start_poff[-1] + 0x1000)) # no idea where the last symbol ends
+
+        for (sym_start_poff, sym_end_poff) in sym_poff_boundaries:
+                yield Func(name=self._poff_to_sym[sym_start_poff],
+                           mangled_name=self._poff_to_sym[sym_start_poff],
+                           poff=sym_start_poff,
+                           size=sym_end_poff-sym_start_poff+1)
         raise StopIteration()
 
 
