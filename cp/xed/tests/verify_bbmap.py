@@ -29,9 +29,9 @@ def make_dso_bbmap(fname):
 
 fname = sys.argv[1]
 # run objdump on the same file
-cmd = "objdump -D -j .text -j .init -j .plt -j .fini %s  | egrep '^\s+[0-9a-f]+:' | cut -f1 | tr -d : > /tmp/objdump.TMPcsv" % fname
+cmd = "objdump -zD -j .text -j .init -j .plt -j .fini %s  | egrep '^\s*[0-9a-f]+:' | cut -f1 | tr -d : > /tmp/objdump.TMPcsv" % fname
 print cmd
-#cmd = "objdump -D %s | egrep '^\s+[0-9a-f]+:' | cut -f1 | tr -d : > /tmp/objdump.TMPcsv" % fname
+#cmd = "objdump -D %s | egrep '^\s*[0-9a-f]+:' | cut -f1 | tr -d : > /tmp/objdump.TMPcsv" % fname
 os.system(cmd)
 df_objdump = p.read_csv("/tmp/objdump.TMPcsv", names=["bb_objdump"], converters={0: lambda x: int(x, 16)})
 df_chopper = make_dso_bbmap(fname)
