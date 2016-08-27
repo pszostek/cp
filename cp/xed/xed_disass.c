@@ -194,16 +194,25 @@ inst_list_t* _disassemble_until_bb_end(xed_state_t xed_state, char* data, unsign
   return ret;
 }
 
+// TODO: #19 verify that _SYSTEM really terminates a block (ex: rdtsc, wrmsr might not; but PROTECTED might)
 int terminates_bb(xed_decoded_inst_t* inst) {
     xed_category_enum_t category = xed_decoded_inst_get_category(inst);
-    return (category == XED_CATEGORY_CALL) ||
+    return ((category == XED_CATEGORY_CALL) ||
            (category == XED_CATEGORY_RET) ||
            (category == XED_CATEGORY_SYSCALL) ||
            (category == XED_CATEGORY_SYSRET) ||
            (category == XED_CATEGORY_SYSTEM) ||
            (category == XED_CATEGORY_UNCOND_BR) ||
-           (category == XED_CATEGORY_COND_BR);
+           (category == XED_CATEGORY_COND_BR));
 
 }
 
-
+int bb_ends_with_unconditional_jump(xed_decoded_inst_t* inst) {
+    xed_category_enum_t category = xed_decoded_inst_get_category(inst);
+    return ((category == XED_CATEGORY_CALL) ||
+           (category == XED_CATEGORY_RET) ||
+           (category == XED_CATEGORY_SYSCALL) ||
+           (category == XED_CATEGORY_SYSRET) ||
+           (category == XED_CATEGORY_SYSTEM) ||
+           (category == XED_CATEGORY_UNCOND_BR));
+}

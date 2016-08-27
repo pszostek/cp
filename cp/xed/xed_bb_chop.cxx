@@ -482,11 +482,15 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     
     xed_tables_init();
 
+    char *ibuffer = (char *) malloc(256);
+    char *idumpbuffer = (char *) malloc(1024);
+        
     for(char section=0; section < NUMBER_OF_SECTIONS; ++section) {
         unsigned long long section_poff = elf_section_poff[section];
         unsigned long long decode_window_start = section_poff;
         unsigned long long section_len = elf_section_sizes[section];
         unsigned long long section_vma = elf_section_vmas[section];
+        int ucond = 0;
         
         DBG("Decoding section %p-%p (length: %d).\n", section_poff, section_poff + section_len - 1, section_len);
                 
@@ -500,7 +504,10 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
           switch(xed_error) {
               case XED_ERROR_NONE:
                   cur_inst_len = xed_decoded_inst_get_length(xedd);
-                  DBG("\tilen %d, terminates: %d\n", cur_inst_len, terminates_bb(xedd));
+                  #ifdef DEBUG
+                  xed_decoded_inst_dump_intel_format(xedd, ibuffer, 256, decode_window_start);
+                  DBG("\n\tilen %d, terminates: %d; %s\n", cur_inst_len, terminates_bb(xedd), ibuffer);
+                  #endif
                   if(terminates_bb(xedd)) {
                       jump_target = xed_decoded_inst_get_branch_displacement(xedd) ?
 //                          xed_decoded_inst_get_branch_displacement(xedd) + decode_window_start + cur_inst_len - rel_adjustment:
@@ -508,11 +515,10 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                           0;
                       #ifdef DEBUG
                       if (jump_target == 0) {
-                       char* buffer = (char*) malloc(512);
-                        xed_decoded_inst_dump(xedd, buffer, 512);
-                        DBG("%s\n", buffer);
+                          xed_decoded_inst_dump(xedd, idumpbuffer, 1024);
+                          DBG("%s\n", idumpbuffer);
 //                        printf("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start - rel_adjustment, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len-rel_adjustment);
-                        DBG("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
+                          DBG("Zero branch displacement :( 0x%lx -> 0x%-lx (%d); next bb: 0x%lx\n", decode_window_start, jump_target, xed_decoded_inst_get_branch_displacement(xedd), decode_window_start+cur_inst_len);
                       }
                       #endif
 
@@ -521,8 +527,10 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                       end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
                       end_addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma));
 
+                      ucond = bb_ends_with_unconditional_jump(xedd);
+                      
                       DBG("[jmp] S PH %p VIRT %p\n", decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma);
-                      DBG("[jmp] E PH %p VIRT %p\n", decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - section_poff + section_vma - 1);
+                      DBG("[jmp] E PH %p VIRT %p, UCOND: %s\n", decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - section_poff + section_vma - 1, ucond ? "YES" : "no");
 
                       if (jump_target && jump_target < 0x4000000000) {
                           addrs.insert(jump_target);

@@ -33,6 +33,7 @@ unsigned int inst_list_append(inst_list_t*, xed_decoded_inst_t*);
 //unsigned int inst_list_extend(inst_list_t* lhs, inst_list_t* rhs);
 
 int terminates_bb(xed_decoded_inst_t*);
+int bb_ends_with_unconditional_jump(xed_decoded_inst_t*);
 
 inst_list_t* _disassemble_x86(char* data, unsigned length, unsigned base);
 inst_list_t* _disassemble_x64(char* data, unsigned length, unsigned base);
