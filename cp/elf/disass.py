@@ -88,7 +88,7 @@ def get_inst_lists(elffile, addrs_list):
     for from_addr, to_addr in addrs_list:
         bb = get_basic_block(elffile, from_addr, to_addr)
         offset_inside_bb = 0
-        symbol = elffile.get_symbol_by_offset(from_addr)
+        symbol = elffile.get_symbol_by_poff(from_addr)
 
         for inst in bb:
             mnemonic = inst.get_mnemonic_intel()
