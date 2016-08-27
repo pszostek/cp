@@ -49,9 +49,10 @@ typedef struct {
 typedef struct {
   uint64_t start;	// the physical offset at which the BB starts
   uint64_t vstart;	// the virtual start address
-  uint32_t len;		// BB length (decimal)
   uint64_t end;		// the physical offset where the BB endds (last byte)
   uint64_t vend;	// the virtual end address
+  uint32_t len;		// BB length (decimal)
+  uint8_t ucond;	// if non-zero, the BB ends with an unconditional jump
 } bbnowak_t;
 
 //std::vector<unsigned long> new_detect_static_basic_blocks(char* elf_data, unsigned int fsize);

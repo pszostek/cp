@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define DEBUG
+//#define DEBUG
 //#define VERBOSE
 
 #ifdef DEBUG
@@ -385,6 +385,12 @@ struct pair_hash {
     }
 };
 
+struct tuple_hash {
+    inline std::size_t operator()(const std::tuple<unsigned long long, unsigned long long, char> &v) const {
+        return std::get<0>(v)*31+std::get<1>(v);
+    }
+};
+
 /* This function attempts to track BB boundaries according to the blessed Levinthal's method.
  * It keeps a set of starting addresses coming from various logical sources:
  *    * symbol offsets
@@ -412,6 +418,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
     std::unordered_set<std::pair<unsigned long long, unsigned long long>, pair_hash> addrs_p; // need to store PH and VIRT addresses
     std::unordered_set<std::pair<unsigned long long, unsigned long long>, pair_hash> end_addrs_p; // as above but for BB end addresses
+    std::unordered_set<std::tuple<unsigned long long, unsigned long long, char>, tuple_hash> end_addrs_t; // as above but for BB end addresses and a flag showing whether the jump is unconditional
 
     std::vector<unsigned long long> elf_section_poff(NUMBER_OF_SECTIONS, 0);
     std::vector<unsigned long long> elf_section_sizes(NUMBER_OF_SECTIONS, 0);
@@ -429,6 +436,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
             addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx], elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
             end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
             end_addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]));
+            end_addrs_t.insert(std::make_tuple(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx], 0));
 
             DBG("[sec] S 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx]);
             DBG("[sec] E 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
@@ -462,6 +470,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
             addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]));
             end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);
             end_addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1));
+            end_addrs_t.insert(std::make_tuple(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1, 0));
+
             DBG("[sym] S PH %p VIRT %p\n", elf_symbol_poff[symidx], elf_symbol_vaddr[symidx]);
             DBG("[sym] S PH %p VIRT %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]);            
             DBG("[sym] E PH %p VIRT %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1);            
@@ -522,12 +532,13 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                       }
                       #endif
 
+                      ucond = bb_ends_with_unconditional_jump(xedd);
+
                       addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
                       addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma));
                       end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
                       end_addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma));
-
-                      ucond = bb_ends_with_unconditional_jump(xedd);
+                      end_addrs_t.insert(std::make_tuple(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma, ucond));
                       
                       DBG("[jmp] S PH %p VIRT %p\n", decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma);
                       DBG("[jmp] E PH %p VIRT %p, UCOND: %s\n", decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - section_poff + section_vma - 1, ucond ? "YES" : "no");
@@ -537,6 +548,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                           addrs_p.insert(std::make_pair(jump_target, jump_target - section_poff + section_vma));
                           end_addrs.insert(jump_target - 1);
                           end_addrs_p.insert(std::make_pair(jump_target - 1, jump_target - 1 - section_poff + section_vma));
+                          end_addrs_t.insert(std::make_tuple(jump_target - 1, jump_target - 1 - section_poff + section_vma, 0));
 
                           DBG("[tgt] S 0x%lx\n", jump_target);
                           DBG("[tgt] E 0x%lx\n", jump_target - 1);
@@ -567,18 +579,21 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 //    std::vector<unsigned long long> end_ret(end_addrs.size());
     std::vector<unsigned long long> end_ret(end_addrs.begin(), end_addrs.end());
     std::vector<std::pair<unsigned long long, unsigned long long>> end_ret_p(end_addrs_p.begin(), end_addrs_p.end());
+    std::vector<std::tuple<unsigned long long, unsigned long long, char>> end_ret_t(end_addrs_t.begin(), end_addrs_t.end());
 //    std::copy(end_addrs.begin(), end_addrs.end(), end_ret.begin());
     sort(end_ret.begin(), end_ret.end());
     sort(end_ret_p.begin(), end_ret_p.end());
+    sort(end_ret_t.begin(), end_ret_t.end());
 
 //    std::vector<bbnowak_t> ret_blocks(std::max(addrs.size(), end_addrs.size()));
     std::vector<bbnowak_t> ret_blocks;
     DBG("Captured %d start addresses, %d end addresses\n", ret_p.size(), end_ret_p.size());
     int i=0, j=0;
     int ret_s = ret.size(), end_ret_s = end_ret.size();
-    int ret_p_s = ret_p.size(), end_ret_p_s = end_ret_p.size();
+    int ret_p_s = ret_p.size(), end_ret_p_s = end_ret_p.size(), end_ret_t_s = end_ret_t.size();
     unsigned long long sa = -1, ea = -1, sa_next = -1;
     unsigned long long sa_v = -1, ea_v = -1; // virtual correspondents
+    char ea_u = 0;
 
     /*
     ea = end_ret[j];
@@ -600,6 +615,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     }
     */
 
+    /* this works
     ea = end_ret_p[j].first;
     while(i < (ret_p_s-1)) {
       bbnowak_t *current_bb = new bbnowak_t;
@@ -622,6 +638,34 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
       ret_blocks.push_back(*current_bb); // WHATEVER
       i++;
     }
+    */
+    
+    ea = std::get<0>(end_ret_t[j]);
+    while(i < (ret_p_s-1)) {
+      bbnowak_t *current_bb = new bbnowak_t;
+      current_bb->start = 0; current_bb->end = 0; current_bb->len = 0;
+      current_bb->vstart = 0; current_bb->vend = 0; current_bb->ucond = 0;
+      sa = ret_p[i].first;
+      sa_v = ret_p[i].second;
+      ea_v = std::get<1>(end_ret_t[j]);
+      ea_u = std::get<2>(end_ret_t[j]);
+      sa_next = ret_p[i+1].first;
+      current_bb->start = sa;
+      current_bb->vstart = sa_v;
+      while(ea < sa_next && j < end_ret_t_s) {
+        current_bb->end = ea;
+        current_bb->vend = ea_v;
+        current_bb->len = ea == 0 ? 0 : ea-sa+1;
+        current_bb->ucond = ea_u;
+        j++;
+        ea = std::get<0>(end_ret_t[j]);
+        ea_v = std::get<1>(end_ret_t[j]);
+        ea_u = std::get<2>(end_ret_t[j]);
+      };
+      ret_blocks.push_back(*current_bb); // WHATEVER
+      i++;
+    }
+
 
     return ret_blocks;
 }

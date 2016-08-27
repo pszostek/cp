@@ -49,9 +49,9 @@ int main(int argc, char** argv) {
 
     std::vector<bbnowak_t> blocks = newer_detect_static_basic_blocks(elf_data, newLen);
     //cout << blocks.size() << endl;
-    fprintf(outf, "bb,bb_end,bbv,bbv_end,len\n");
+    fprintf(outf, "bb,bb_end,bbv,bbv_end,len,ucond\n");
     for(auto i: blocks)
-        fprintf(outf, "0x%x,0x%x,0x%lx,0x%lx,%d\n", i.start, i.end, i.vstart, i.vend, i.len);
+        fprintf(outf, "0x%x,0x%x,0x%lx,0x%lx,%d,%d\n", i.start, i.end, i.vstart, i.vend, i.len, i.ucond);
     fclose(outf);
     
     return 0;
