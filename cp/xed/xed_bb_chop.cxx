@@ -233,9 +233,8 @@ static void get_symbols_info(char* elf_data,
 
     uint32_t symtab_section_idx = get_symtab_idx(elf_data);
     // AN: remove crashes when symbols not found or return is -1? (not sure if this is right)
-    // if it's the kernel, ignorei t and continue
+    // if it's the kernel, ignore it and continue
     if ((symtab_section_idx == -1) && (!elffile_is_kernel(elf_data))) return;
-    //printf("xx %lx %d\n", strtab, symtab_section_idx);
     
     uint32_t symtab_entries = get_number_of_symbols(elf_data, symtab_section_idx);
 
@@ -424,35 +423,21 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     // harvest addresses from ELF section boundaries
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         if(elf_section_sizes[secidx] > 0) {
-//            if (elf_hdr->e_type != ET_REL) {
-//            if (elf_hdr->e_type != ET_REL || true) {
-                addrs.insert(elf_section_poff[secidx]);
-                addrs_p.insert(std::make_pair(elf_section_poff[secidx], elf_section_poff[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
-                addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx]);
-                addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx], elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
-                end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
-                end_addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]));
+            addrs.insert(elf_section_poff[secidx]);
+            addrs_p.insert(std::make_pair(elf_section_poff[secidx], elf_section_poff[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
+            addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx]);
+            addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx], elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
+            end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
+            end_addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]));
 
-                DBG("[sec] S 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx]);
-                DBG("[sec] E 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
-                DBG("[sec] S PH %p VIRT %p\n", 
-                    elf_section_poff[secidx] + elf_section_sizes[secidx], 
-                    elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]);
-                DBG("[sec] E PH %p VIRT %p\n", 
-                    elf_section_poff[secidx] + elf_section_sizes[secidx] - 1,
-                    elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]);
-
-/*            } else {
-                // TODO: remove, this won't be needed anymore
-                addrs.insert(0);
-                addrs.insert(elf_section_sizes[secidx]);
-                end_addrs.insert(elf_section_sizes[secidx] - 1);
-                #ifdef DEBUG
-                printf("XXX DEL [sec] S 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx]);
-                printf("XXX DEL [sec] E 0x%lx [section in ET_REL]\n", elf_section_sizes[secidx] - 1);            
-                #endif
-                                                                                
-            }*/
+            DBG("[sec] S 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx]);
+            DBG("[sec] E 0x%lx\n", elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
+            DBG("[sec] S PH %p VIRT %p\n", 
+                elf_section_poff[secidx] + elf_section_sizes[secidx], 
+                elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]);
+            DBG("[sec] E PH %p VIRT %p\n", 
+                elf_section_poff[secidx] + elf_section_sizes[secidx] - 1,
+                elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]);
         }
     }
 
@@ -471,22 +456,15 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         if((elf_hdr->e_type == ET_REL) && (elf_symbol_secids[symidx] != elf_section_ids[TEXT]))
             continue;
         if(elf_symbol_sizes[symidx] > 0) {
-//            addrs.insert(elf_symbol_poff[symidx] - binary_base);
             addrs.insert(elf_symbol_poff[symidx]);
             addrs_p.insert(std::make_pair(elf_symbol_poff[symidx], elf_symbol_vaddr[symidx]));            
-//            addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);
-//            end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);
             addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);
             addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]));
             end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);
             end_addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1));
-//            printf("[sym] S PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);     
-//            printf("[sym] E PH %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1);            
             DBG("[sym] S PH %p VIRT %p\n", elf_symbol_poff[symidx], elf_symbol_vaddr[symidx]);
             DBG("[sym] S PH %p VIRT %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]);            
             DBG("[sym] E PH %p VIRT %p\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1);            
-//            if (elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base - 1 == 0x108c0) printf("POINT2: ins\n");
-//            printf("sym end 0x%lx\n", elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - binary_base);
         }
     }
 
@@ -510,17 +488,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         unsigned long long section_len = elf_section_sizes[section];
         unsigned long long section_vma = elf_section_vmas[section];
         
-        // if it is a REL type, heuristically adjust addresses coming out, assuming the section base as 0
-//        unsigned long long rel_adjustment = elf_hdr->e_type == ET_REL ? section_poff : 0;
-
-        // the symbol/line physical offset + this adjustment = symbol/line VMA
-//        unsigned long long global_adjustment = 0; // TODO
-        
         DBG("Decoding section %p-%p (length: %d).\n", section_poff, section_poff + section_len - 1, section_len);
-//        printf("The module %s of type REL, assuming rel_adjustment of -0x%lx bytes\n", 
-//            elf_hdr->e_type == ET_REL ? "IS" : "is NOT",
-//            rel_adjustment);
-        
+                
         while(decode_window_start < section_poff+section_len) { //decode the whole section
           xed_decoded_inst_zero_set_mode(xedd, &dstate);
           xed_error = xed_decode(xedd, 
@@ -547,15 +516,11 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                       }
                       #endif
 
-//                      addrs.insert(decode_window_start + cur_inst_len - rel_adjustment); //next bb after the current one
-//                      end_addrs.insert(decode_window_start + cur_inst_len - rel_adjustment - 1); // last byte of the current instruction
                       addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
                       addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma));
                       end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
                       end_addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma));
 
-//                      printf("[jmp] S 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment);
-//                      printf("[jmp] E 0x%lx\n", decode_window_start + cur_inst_len - rel_adjustment - 1);
                       DBG("[jmp] S PH %p VIRT %p\n", decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma);
                       DBG("[jmp] E PH %p VIRT %p\n", decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - section_poff + section_vma - 1);
 
@@ -584,29 +549,28 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     }
 
     DBG("BEGIN ADDRESS DUMP\n");
-    std::vector<unsigned long long> ret(addrs.size());
+//    std::vector<unsigned long long> ret(addrs.size());
+    std::vector<unsigned long long> ret(addrs.begin(), addrs.end());
     std::vector<std::pair<unsigned long long, unsigned long long>> ret_p(addrs_p.begin(), addrs_p.end());
-    std::copy(addrs.begin(), addrs.end(), ret.begin());
-//    std::copy(addrs_p.begin(), addrs_p.end(), ret_p.begin());
+//    std::copy(addrs.begin(), addrs.end(), ret.begin());
     sort(ret.begin(), ret.end());
     sort(ret_p.begin(), ret_p.end());
 
-    std::vector<unsigned long long> end_ret(end_addrs.size());
+//    std::vector<unsigned long long> end_ret(end_addrs.size());
+    std::vector<unsigned long long> end_ret(end_addrs.begin(), end_addrs.end());
     std::vector<std::pair<unsigned long long, unsigned long long>> end_ret_p(end_addrs_p.begin(), end_addrs_p.end());
-    std::copy(end_addrs.begin(), end_addrs.end(), end_ret.begin());
-//    std::copy(end_addrs_p.begin(), end_addrs_p.end(), end_ret_p.begin());
+//    std::copy(end_addrs.begin(), end_addrs.end(), end_ret.begin());
     sort(end_ret.begin(), end_ret.end());
     sort(end_ret_p.begin(), end_ret_p.end());
 
 //    std::vector<bbnowak_t> ret_blocks(std::max(addrs.size(), end_addrs.size()));
     std::vector<bbnowak_t> ret_blocks;
-//    printf("Captured %d start addresses, %d end addresses\n", ret.size(), end_ret.size());
+    DBG("Captured %d start addresses, %d end addresses\n", ret_p.size(), end_ret_p.size());
     int i=0, j=0;
     int ret_s = ret.size(), end_ret_s = end_ret.size();
     int ret_p_s = ret_p.size(), end_ret_p_s = end_ret_p.size();
     unsigned long long sa = -1, ea = -1, sa_next = -1;
     unsigned long long sa_v = -1, ea_v = -1; // virtual correspondents
-    // AN: todo: last block is chopped off, add boundary condition
 
     /*
     ea = end_ret[j];
@@ -651,15 +615,5 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
       i++;
     }
 
-/*    
-    printf("BEGIN ADDRS ===================================\n");
-    for (auto i: ret) {
-        printf("0x%lx\n", i);
-    }
-    printf("END ADDRS ===================================\n");
-    for (auto i: end_ret) {
-        printf("0x%lx\n", i);
-    }
-*/
     return ret_blocks;
 }
