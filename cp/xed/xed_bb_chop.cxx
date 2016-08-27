@@ -430,11 +430,11 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     // harvest addresses from ELF section boundaries
     for(unsigned secidx = INIT; secidx < FINI; ++secidx) {
         if(elf_section_sizes[secidx] > 0) {
-            addrs.insert(elf_section_poff[secidx]);
+//            addrs.insert(elf_section_poff[secidx]);
             addrs_p.insert(std::make_pair(elf_section_poff[secidx], elf_section_poff[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
-            addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx]);
+//            addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx]);
             addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx], elf_section_poff[secidx] + elf_section_sizes[secidx] - elf_section_poff[secidx] + elf_section_vmas[secidx]));
-            end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
+//            end_addrs.insert(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1);
             end_addrs_p.insert(std::make_pair(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx]));
             end_addrs_t.insert(std::make_tuple(elf_section_poff[secidx] + elf_section_sizes[secidx] - 1, elf_section_poff[secidx] + elf_section_sizes[secidx] - 1 - elf_section_poff[secidx] + elf_section_vmas[secidx], 0));
 
@@ -464,11 +464,11 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         if((elf_hdr->e_type == ET_REL) && (elf_symbol_secids[symidx] != elf_section_ids[TEXT]))
             continue;
         if(elf_symbol_sizes[symidx] > 0) {
-            addrs.insert(elf_symbol_poff[symidx]);
+//            addrs.insert(elf_symbol_poff[symidx]);
             addrs_p.insert(std::make_pair(elf_symbol_poff[symidx], elf_symbol_vaddr[symidx]));            
-            addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);
+//            addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx]);
             addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx], elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx]));
-            end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);
+//            end_addrs.insert(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1);
             end_addrs_p.insert(std::make_pair(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1));
             end_addrs_t.insert(std::make_tuple(elf_symbol_poff[symidx] + elf_symbol_sizes[symidx] - 1, elf_symbol_vaddr[symidx] + elf_symbol_sizes[symidx] - 1, 0));
 
@@ -534,9 +534,9 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
                       ucond = bb_ends_with_unconditional_jump(xedd);
 
-                      addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
+//                      addrs.insert(decode_window_start + cur_inst_len); //next bb after the current one
                       addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len, decode_window_start + cur_inst_len - section_poff + section_vma));
-                      end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
+//                      end_addrs.insert(decode_window_start + cur_inst_len - 1); // last byte of the current instruction
                       end_addrs_p.insert(std::make_pair(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma));
                       end_addrs_t.insert(std::make_tuple(decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - 1 - section_poff + section_vma, ucond));
                       
@@ -544,14 +544,14 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
                       DBG("[jmp] E PH %p VIRT %p, UCOND: %s\n", decode_window_start + cur_inst_len - 1, decode_window_start + cur_inst_len - section_poff + section_vma - 1, ucond ? "YES" : "no");
 
                       if (jump_target && jump_target < 0x4000000000) {
-                          addrs.insert(jump_target);
+//                          addrs.insert(jump_target);
                           addrs_p.insert(std::make_pair(jump_target, jump_target - section_poff + section_vma));
-                          end_addrs.insert(jump_target - 1);
+//                          end_addrs.insert(jump_target - 1);
                           end_addrs_p.insert(std::make_pair(jump_target - 1, jump_target - 1 - section_poff + section_vma));
                           end_addrs_t.insert(std::make_tuple(jump_target - 1, jump_target - 1 - section_poff + section_vma, 0));
 
-                          DBG("[tgt] S 0x%lx\n", jump_target);
-                          DBG("[tgt] E 0x%lx\n", jump_target - 1);
+//                          DBG("[tgt] S 0x%lx\n", jump_target);
+//                          DBG("[tgt] E 0x%lx\n", jump_target - 1);
                           DBG("[tgt] S PH %p VIRT %p\n", jump_target, jump_target - section_poff + section_vma);
                           DBG("[tgt] E PH %p VIRT %p\n", jump_target - 1, jump_target - 1 - section_poff + section_vma);                                                    
                       }
@@ -570,18 +570,18 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
     DBG("BEGIN ADDRESS DUMP\n");
 //    std::vector<unsigned long long> ret(addrs.size());
-    std::vector<unsigned long long> ret(addrs.begin(), addrs.end());
+//    std::vector<unsigned long long> ret(addrs.begin(), addrs.end());
     std::vector<std::pair<unsigned long long, unsigned long long>> ret_p(addrs_p.begin(), addrs_p.end());
 //    std::copy(addrs.begin(), addrs.end(), ret.begin());
-    sort(ret.begin(), ret.end());
+//    sort(ret.begin(), ret.end());
     sort(ret_p.begin(), ret_p.end());
 
 //    std::vector<unsigned long long> end_ret(end_addrs.size());
-    std::vector<unsigned long long> end_ret(end_addrs.begin(), end_addrs.end());
+//    std::vector<unsigned long long> end_ret(end_addrs.begin(), end_addrs.end());
     std::vector<std::pair<unsigned long long, unsigned long long>> end_ret_p(end_addrs_p.begin(), end_addrs_p.end());
     std::vector<std::tuple<unsigned long long, unsigned long long, char>> end_ret_t(end_addrs_t.begin(), end_addrs_t.end());
 //    std::copy(end_addrs.begin(), end_addrs.end(), end_ret.begin());
-    sort(end_ret.begin(), end_ret.end());
+//    sort(end_ret.begin(), end_ret.end());
     sort(end_ret_p.begin(), end_ret_p.end());
     sort(end_ret_t.begin(), end_ret_t.end());
 
@@ -589,7 +589,7 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
     std::vector<bbnowak_t> ret_blocks;
     DBG("Captured %d start addresses, %d end addresses\n", ret_p.size(), end_ret_p.size());
     int i=0, j=0;
-    int ret_s = ret.size(), end_ret_s = end_ret.size();
+//    int ret_s = ret.size(), end_ret_s = end_ret.size();
     int ret_p_s = ret_p.size(), end_ret_p_s = end_ret_p.size(), end_ret_t_s = end_ret_t.size();
     unsigned long long sa = -1, ea = -1, sa_next = -1;
     unsigned long long sa_v = -1, ea_v = -1; // virtual correspondents
