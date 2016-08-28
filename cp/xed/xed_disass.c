@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -106,19 +105,57 @@ inst_list_t* _disassemble_x86(char* data, unsigned length, unsigned base) {
     return _disassemble(dstate, data, length, base);
 }
 
-inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned length, unsigned base) {
-     
+#define LONGEST_POSSIBLE_INSTRUCTION 15
 
+inst_list_t* _disassemble(xed_state_t xed_state, char* data, unsigned length, unsigned base) {
     xed_tables_init();
 
     unsigned start = 0, stop = 1;
     unsigned inst_count = 0;
+    unsigned int current_ilen = 0;
+    
     inst_list_t* ret = (inst_list_t*) malloc(sizeof(inst_list_t));
     inst_list_init(ret, base);
 
     while(start < length && stop <= length) {
         xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
         xed_decoded_inst_zero_set_mode(xedd, &xed_state);
+        xed_error_enum_t xed_error = xed_decode(xedd, 
+            XED_REINTERPRET_CAST(xed_uint8_t*,data+start),
+            LONGEST_POSSIBLE_INSTRUCTION+1);
+
+        switch(xed_error) {
+            case XED_ERROR_NONE:
+                inst_list_append(ret, xedd);
+                inst_count++;
+                current_ilen = xed_decoded_inst_get_length(xedd);                
+                start += current_ilen;
+                stop = start + 1;
+                break;
+            case XED_ERROR_BUFFER_TOO_SHORT:
+            case XED_ERROR_GENERAL_ERROR:
+            default:
+                start += 1;
+                stop += 1;
+        }
+    }
+
+  return ret;
+}
+
+inst_list_t* _disassemble_broken_an(xed_state_t xed_state, char* data, unsigned length, unsigned base) {
+    xed_tables_init();
+
+    unsigned start = 0, stop = 1;
+    unsigned inst_count = 0;
+    xed_decoded_inst_t *xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
+    
+    inst_list_t* ret = (inst_list_t*) malloc(sizeof(inst_list_t));
+    inst_list_init(ret, base);
+
+    while(start < length && stop <= length) {
+        xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
+        xed_decoded_inst_zero_set_mode(xedd, &xed_state); //? here
         xed_error_enum_t xed_error = xed_decode(xedd, 
             XED_REINTERPRET_CAST(xed_uint8_t*,data+start),
             stop-start);
