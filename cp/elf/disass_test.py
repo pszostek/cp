@@ -21,8 +21,8 @@ for inst in inst_list:
     print ""
     # if xed.terminates_bb(inst):
     #     print ">>",\
-    #           inst.get_mnemonic_intel(),\
+    #           inst.get_asm_line_intel(),\
     #           xed.xed_operand_values_get_branch_displacement_int32(xed.xed_decoded_inst_operands_const(inst))
     # else:
-    #     print inst.get_mnemonic_intel()
+    #     print inst.get_asm_line_intel()
 

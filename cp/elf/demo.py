@@ -27,9 +27,9 @@ print fav_num_inst[-1]
 
 # various mnemonics, instruction class, category
 inst = fav_num_inst[0]
-inst.get_mnemonic()
-inst.get_mnemonic_intel()
-inst.get_mnemonic_att()
+inst.get_asm_line()
+inst.get_asm_line_intel()
+inst.get_asm_line_att()
 inst.get_iclass()
 inst.get_category()
 

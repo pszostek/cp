@@ -91,7 +91,7 @@ def get_inst_lists(elffile, addrs_list):
         symbol = elffile.get_symbol_by_poff(from_addr)
 
         for inst in bb:
-            mnemonic = inst.get_mnemonic_intel()
+            asm_line = inst.get_asm_line_intel()
             inst_length = inst.get_length()
             #noperands = xed.xed_decoded_inst_noperands(inst)
             noperands = inst.get_number_of_operands()
@@ -120,7 +120,7 @@ def get_inst_lists(elffile, addrs_list):
             index_tuples.append((symbol,
                 from_addr,
                 offset_inside_bb))
-            result_list.append((mnemonic,
+            result_list.append((asm_line,
                 inst_length,
                 inst.get_iclass(),
                 inst.get_isa_set(),
@@ -157,7 +157,7 @@ def get_inst_lists(elffile, addrs_list):
 
     ret_data_frame = pd.DataFrame(result_list,
         index=index,
-        columns=['mnemonic',
+        columns=['asm_line',
             'inst_length',
             'XED_ICLASS',
             'XED_ISA_SET',
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     # e = elffile_mod.ELFFile("/home/paszoste/cp/tests/files/test_elf")
     # bb = get_basic_block(e, 0x81f)
     # for inst in bb:
-    #     print inst.get_mnemonic_intel(), inst.get_length(), inst.get_operand_width(), inst.get_number_of_operands(), bytes_to_string(inst.get_bytes())
+    #     print inst.get_asm_line_intel(), inst.get_length(), inst.get_operand_width(), inst.get_number_of_operands(), bytes_to_string(inst.get_bytes())
     from pandas import DataFrame
     bb_df = DataFrame.from_csv("../../csv/libCore.so.stat.csv")
     bbs = list(bb_df.index)

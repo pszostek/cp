@@ -148,12 +148,12 @@ namespace std {
         xed_operand_values_dump(xed_decoded_inst_operands($self), *buffer, 512);
     }
 
-    void get_mnemonic(char** buffer) {
+    void get_asm_line(char** buffer) {
         *buffer = (char*) malloc(512);
         xed_decoded_inst_dump($self, *buffer, 512);
     }
 
-    void get_mnemonic_intel(char** buffer) {
+    void get_asm_line_intel(char** buffer) {
         *buffer = (char*) malloc(64);
         xed_decoded_inst_dump_intel_format($self, *buffer, 64, 0);
     }
@@ -162,7 +162,7 @@ namespace std {
         xed_decoded_inst_dump_intel_format($self, *buffer, 64, 0);
     }
 
-    void get_mnemonic_att(char** buffer) {
+    void get_asm_line_att(char** buffer) {
         *buffer = (char*) malloc(64);
         xed_decoded_inst_dump_att_format($self, *buffer, 64, 0);
     }
