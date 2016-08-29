@@ -4,7 +4,7 @@
 from __future__ import print_function
 from collections import namedtuple
 from pyelftools.elftools.elf.elffile import ELFFile as ELFFile_
-from pyelftools.elftools.elf.sections import Section
+from pyelftools.elftools.elf.sections import Section, Symbol
 from pyelftools.elftools.common.py3compat import bytes2str
 
 Func = namedtuple("Func", ["name", "mangled_name", "poff", "size"])
@@ -236,7 +236,10 @@ class ELFFile(ELFFile_):
             else:
                 raise StopIteration()
 
-        for sym in symbols_iter:
+        symbols_list = list(symbols_iter)
+        sym_start_vaddrs = [sym['st_value'] for sym in symbols_list]
+        guessed_symbol_sizes = self._compute_symbol_sizes(sym_start_vaddrs)
+        for sym in symbols_list:
             if sym.entry['st_info']['type'] == 'STT_FUNC' and sym['st_shndx'] is not 'SHN_UNDEF':
                 demangled_name = demangle.cplus_demangle(sym.name, 1)
                 if demangled_name is not None:
@@ -244,10 +247,19 @@ class ELFFile(ELFFile_):
                 else:
                     name = sym.name
                 adj = self._symbol_to_poff_adj(sym)
+                sym_size = 0
+                sym_poff = sym.entry['st_value'] + adj
+                if sym.entry['st_size'] is not 0:
+                    sym_size = sym.entry['st_size']
+                else:
+                    try:
+                        sym_size = guessed_symbol_sizes[sym.entry['st_value']]
+                    except KeyError:  # nope, we don't have this value
+                        pass  # oh well, the symbol will be zero-sized
                 yield Func(name=name,
                            mangled_name=sym.name,
-                           poff=sym.entry['st_value'] + adj,
-                           size=sym.entry['st_size'])
+                           poff=sym_poff,
+                           size=sym_size)
         raise StopIteration()
 
     def _offset_inside_section(self, offset, section):
@@ -257,14 +269,28 @@ class ELFFile(ELFFile_):
     def _build_symbol_tree(self):
         from intervaltree import IntervalTree, Interval
         # Interval expects addresses (first, one_after)
-        #for func in self._iter_func():
-        #    if func.size != 0:
-        #        print(func.name, hex(func.poff), hex(func.poff+func.size))
+        #for idx, func in enumerate(self._iter_func()):
+        #        print(idx, func.name, hex(func.poff), hex(func.poff+func.size))
         intervals = [Interval(func.poff, func.poff+func.size, func.name) for func in self._iter_func() if func.size != 0]
         return IntervalTree(intervals)
 
+    def _compute_symbol_boundaries(self, symbol_poffs):
+        symbol_poffs = sorted(symbol_poffs)
+        sym_poff_boundaries = zip(symbol_poffs[:-1], [a-1 for a in symbol_poffs][1:])
+        # add the last boundary
+        sym_poff_boundaries.append((symbol_poffs[-1], symbol_poffs[-1] + 0x1000)) # no idea where the last symbol ends
+        return sym_poff_boundaries
+
+    def _compute_symbol_sizes(self, symbol_poffs):
+        # input: a list of symbol starting addresses
+        # returns a dictionary (starting address: size)
+        sym_poff_boundaries = self._compute_symbol_boundaries(symbol_poffs)
+        sym_poff_to_size_list = [(start, end-start+1) for (start, end) in sym_poff_boundaries]
+        return dict(sym_poff_to_size_list)
+
     def _symbol_to_poff_adj(self, symbol):
         """ symbol is an elf.Symbol """
+        assert(isinstance(symbol, Symbol))
         sym_section = self.get_section(symbol['st_shndx'])
         adj = sym_section['sh_offset'] - sym_section['sh_addr']
         return adj
@@ -311,8 +337,7 @@ class Kernel(ELFFile):
 
     def _iter_func(self, symbols_iter=None):
         sym_start_poff = sorted(self._poff_to_sym.keys())
-        sym_poff_boundaries = zip(sym_start_poff[:-1], [a-1 for a in sym_start_poff][1:])
-        sym_poff_boundaries.append((sym_start_poff[-1], sym_start_poff[-1] + 0x1000)) # no idea where the last symbol ends
+        sym_poff_boundaries = self._compute_symbol_boundaries(sym_start_poff)
 
         for (sym_start_poff, sym_end_poff) in sym_poff_boundaries:
                 yield Func(name=self._poff_to_sym[sym_start_poff],
