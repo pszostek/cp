@@ -91,7 +91,7 @@ def get_inst_lists(elffile, addrs_list):
         symbol = elffile.get_symbol_by_poff(from_addr)
 
         for inst in bb:
-            asm_line = inst.get_asm_line_intel()
+            asm_line = inst.get_asm_line_intel(base=from_addr+offset_inside_bb)
             inst_length = inst.get_length()
             #noperands = xed.xed_decoded_inst_noperands(inst)
             noperands = inst.get_number_of_operands()
