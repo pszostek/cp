@@ -1,0 +1,100 @@
+diff --git a/include/uapi/linux/perf_event.h b/include/uapi/linux/perf_event.h
+index 4f63c05..75b73e3 100644
+--- a/include/uapi/linux/perf_event.h
++++ b/include/uapi/linux/perf_event.h
+@@ -302,6 +302,7 @@ struct perf_event_attr {
+ 
+ 	/* Align to u64. */
+ 	__u32	__reserved_2;
++	__u64	random_period_width;
+ };
+ 
+ #define perf_flags(attr)	(*(&(attr)->read_format + 1))
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index dbccf83..64520cc 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -37,6 +37,7 @@
+ #include <linux/ftrace_event.h>
+ #include <linux/hw_breakpoint.h>
+ #include <linux/mm_types.h>
++#include <linux/random.h>
+ 
+ #include "internal.h"
+ 
+@@ -4848,6 +4849,22 @@ static void perf_log_throttle(struct perf_event *event, int enable)
+ 	perf_output_end(&handle);
+ }
+ 
++static void perf_randomize_event_period(struct perf_event *event)
++{
++	u64 mask = ((1ULL << event->attr.random_period_width) - 1);
++	u64 new_seed;
++
++	new_seed = random32();
++
++	if (unlikely(mask >> 32))
++		new_seed |= (u64)random32() << 32;
++
++	event->hw.sample_period = event->attr.sample_period
++		+ (new_seed & mask) - (mask >> 1);
++
++	event->hw.last_period = event->hw.sample_period;
++}
++
+ /*
+  * Generic event overflow handling, sampling.
+  */
+@@ -4911,6 +4928,9 @@ static int __perf_event_overflow(struct perf_event *event,
+ 	else
+ 		perf_event_output(event, data, regs);
+ 
++	if (event->attr.random_period_width)
++		perf_randomize_event_period(event);
++
+ 	if (event->fasync && event->pending_kill) {
+ 		event->pending_wakeup = 1;
+ 		irq_work_queue(&event->pending);
+@@ -6241,6 +6261,28 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
+ 	return event;
+ }
+ 
++static int perf_check_random_period(struct perf_event_attr *attr)
++{
++	u64 width = attr->random_period_width;
++	u64 period = attr->sample_period;
++	u64 half;
++
++	if (width > 63 || attr->freq)
++		return -EINVAL;
++
++	half =  (1ULL << (width - 1)) - 1;
++
++	/* overflow */
++	if ((period + half) < period)
++		return -EINVAL;
++
++	/* underflow and zero */
++	if (period  <= half)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int perf_copy_attr(struct perf_event_attr __user *uattr,
+ 			  struct perf_event_attr *attr)
+ {
+@@ -6360,7 +6402,11 @@ static int perf_copy_attr(struct perf_event_attr __user *uattr,
+ 		else if (!IS_ALIGNED(attr->sample_stack_user, sizeof(u64)))
+ 			ret = -EINVAL;
+ 	}
+-
++	if (attr->random_period_width) {
++		ret = perf_check_random_period(attr);
++		if (ret)
++			return ret;
++	}
+ out:
+ 	return ret;
+ 
+

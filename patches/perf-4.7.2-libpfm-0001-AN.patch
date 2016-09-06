@@ -1,0 +1,598 @@
+diff -urP linux-4.7.2-orig/tools/build/feature/Makefile linux-4.7.2-libpfm/tools/build/feature/Makefile
+--- linux-4.7.2-orig/tools/build/feature/Makefile	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/build/feature/Makefile	2016-09-05 23:32:20.395149587 +0200
+@@ -24,6 +24,7 @@
+ 	test-libpython.bin		\
+ 	test-libpython-version.bin	\
+ 	test-libslang.bin		\
++	test-libpfm4.bin		\
+ 	test-libcrypto.bin		\
+ 	test-libunwind.bin		\
+ 	test-libunwind-debug-frame.bin	\
+@@ -136,6 +137,9 @@
+ $(OUTPUT)test-libcrypto.bin:
+ 	$(BUILD) -lcrypto
+ 
++$(OUTPUT)test-libpfm4.bin:
++	$(BUILD) -lpfm
++
+ $(OUTPUT)test-gtk2.bin:
+ 	$(BUILD) $(shell $(PKG_CONFIG) --libs --cflags gtk+-2.0 2>/dev/null)
+ 
+diff -urP linux-4.7.2-orig/tools/build/feature/test-libpfm4.c linux-4.7.2-libpfm/tools/build/feature/test-libpfm4.c
+--- linux-4.7.2-orig/tools/build/feature/test-libpfm4.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-4.7.2-libpfm/tools/build/feature/test-libpfm4.c	2016-09-05 23:31:23.384366996 +0200
+@@ -0,0 +1,8 @@
++#include <sys/types.h>
++#include <perfmon/pfmlib.h>
++
++int main(void)
++{
++	(void)pfm_initialize();
++	return 0;
++}
+diff -urP linux-4.7.2-orig/tools/build/Makefile.feature linux-4.7.2-libpfm/tools/build/Makefile.feature
+--- linux-4.7.2-orig/tools/build/Makefile.feature	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/build/Makefile.feature	2016-09-05 23:32:41.527437300 +0200
+@@ -47,6 +47,7 @@
+ 	libpython			\
+ 	libpython-version		\
+ 	libslang			\
++	libpfm4				\
+ 	libcrypto			\
+ 	libunwind			\
+ 	libunwind-x86			\
+diff -urP linux-4.7.2-orig/tools/perf/builtin-list.c linux-4.7.2-libpfm/tools/perf/builtin-list.c
+--- linux-4.7.2-orig/tools/perf/builtin-list.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/builtin-list.c	2016-09-05 23:31:23.384366996 +0200
+@@ -16,6 +16,10 @@
+ #include "util/pmu.h"
+ #include <subcmd/parse-options.h>
+ 
++#ifdef USE_LIBPFM
++#include <perfmon/pfmlib.h>
++#endif
++
+ int cmd_list(int argc, const char **argv, const char *prefix __maybe_unused)
+ {
+ 	int i;
+@@ -35,6 +39,13 @@
+ 			     PARSE_OPT_STOP_AT_NON_OPTION);
+ 
+ 	setup_pager();
++#ifdef USE_LIBPFM
++	{ int ret;
++	  ret = pfm_initialize();
++	  if (ret != PFM_SUCCESS)
++		fprintf(stderr, "warning libpfm failed to initialize: %s\n", pfm_strerror(ret));
++	}
++#endif
+ 
+ 	if (!raw_dump && pager_in_use())
+ 		printf("\nList of pre-defined events (to be used in -e):\n\n");
+diff -urP linux-4.7.2-orig/tools/perf/builtin-record.c linux-4.7.2-libpfm/tools/perf/builtin-record.c
+--- linux-4.7.2-orig/tools/perf/builtin-record.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/builtin-record.c	2016-09-05 23:31:23.384366996 +0200
+@@ -42,6 +42,9 @@
+ #include <sys/mman.h>
+ #include <asm/bug.h>
+ 
++#ifdef USE_LIBPFM
++#include <perfmon/pfmlib.h>
++#endif
+ 
+ struct record {
+ 	struct perf_tool	tool;
+@@ -1386,6 +1389,11 @@
+ 		    "append timestamp to output filename"),
+ 	OPT_BOOLEAN(0, "switch-output", &record.switch_output,
+ 		    "Switch output when receive SIGUSR2"),
++#ifdef USE_LIBPFM
++        OPT_CALLBACK(0, "pfm-events", &record.evlist, "event",
++                    "libpfm4 event selector. use 'perf list' to list available events",
++                    parse_libpfm_events_option),
++#endif
+ 	OPT_END()
+ };
+ 
+@@ -1418,6 +1426,14 @@
+ # undef REASON
+ #endif
+ 
++#ifdef USE_LIBPFM
++	{ int ret;
++	  ret = pfm_initialize();
++	  if (ret != PFM_SUCCESS)
++		ui__warning("warning libpfm failed to initialize: %s\n", pfm_strerror(ret));
++	}
++#endif
++
+ 	rec->evlist = perf_evlist__new();
+ 	if (rec->evlist == NULL)
+ 		return -ENOMEM;
+diff -urP linux-4.7.2-orig/tools/perf/builtin-stat.c linux-4.7.2-libpfm/tools/perf/builtin-stat.c
+--- linux-4.7.2-orig/tools/perf/builtin-stat.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/builtin-stat.c	2016-09-05 23:31:23.385367000 +0200
+@@ -68,6 +68,10 @@
+ #include <locale.h>
+ #include <math.h>
+ 
++#ifdef USE_LIBPFM
++#include <perfmon/pfmlib.h>
++#endif
++
+ #define DEFAULT_SEPARATOR	" "
+ #define CNTR_NOT_SUPPORTED	"<not supported>"
+ #define CNTR_NOT_COUNTED	"<not counted>"
+@@ -1580,6 +1584,11 @@
+ 		     "ms to wait before starting measurement after program start"),
+ 	OPT_BOOLEAN(0, "metric-only", &metric_only,
+ 			"Only print computed metrics. No raw values"),
++#ifdef USE_LIBPFM
++        OPT_CALLBACK(0, "pfm-events", &evsel_list, "event",
++                     "libpfm4 event selector. use 'perf list' to list available events",
++                     parse_libpfm_events_option),
++#endif
+ 	OPT_END()
+ };
+ 
+@@ -2183,6 +2192,14 @@
+ 	unsigned int interval;
+ 	const char * const stat_subcommands[] = { "record", "report" };
+ 
++#ifdef USE_LIBPFM
++	{ int ret;
++	  ret = pfm_initialize();
++	  if (ret != PFM_SUCCESS)
++		fprintf(stderr, "warning libpfm failed to initialize: %s\n", pfm_strerror(ret));
++	}
++#endif
++
+ 	setlocale(LC_ALL, "");
+ 
+ 	evsel_list = perf_evlist__new();
+diff -urP linux-4.7.2-orig/tools/perf/builtin-top.c linux-4.7.2-libpfm/tools/perf/builtin-top.c
+--- linux-4.7.2-orig/tools/perf/builtin-top.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/builtin-top.c	2016-09-05 23:31:23.385367000 +0200
+@@ -70,6 +70,10 @@
+ #include <linux/stringify.h>
+ #include <linux/types.h>
+ 
++#ifdef USE_LIBPFM
++#include <perfmon/pfmlib.h>
++#endif
++
+ static volatile int done;
+ 
+ #define HEADER_LINE_NR  5
+@@ -1213,6 +1217,11 @@
+ 		    "Show raw trace event output (do not use print fmt or plugins)"),
+ 	OPT_BOOLEAN(0, "hierarchy", &symbol_conf.report_hierarchy,
+ 		    "Show entries in a hierarchy"),
++#ifdef USE_LIBPFM
++        OPT_CALLBACK(0, "pfm-events", &top.evlist, "event",
++                     "libpfm4 event selector. use 'perf list' to list available events",
++                     parse_libpfm_events_option),
++#endif
+ 	OPT_END()
+ 	};
+ 	const char * const top_usage[] = {
+@@ -1224,6 +1233,14 @@
+ 	if (status < 0)
+ 		return status;
+ 
++#ifdef USE_LIBPFM
++	{ int ret;
++	  ret = pfm_initialize();
++	  if (ret != PFM_SUCCESS)
++		fprintf(stderr, "warning libpfm failed to initialize: %s\n", pfm_strerror(ret));
++	}
++#endif
++
+ 	top.evlist = perf_evlist__new();
+ 	if (top.evlist == NULL)
+ 		return -ENOMEM;
+diff -urP linux-4.7.2-orig/tools/perf/config/Makefile linux-4.7.2-libpfm/tools/perf/config/Makefile
+--- linux-4.7.2-orig/tools/perf/config/Makefile	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/config/Makefile	2016-09-05 23:31:23.386367000 +0200
+@@ -467,6 +467,16 @@
+ grep-libs  = $(filter -l%,$(1))
+ strip-libs = $(filter-out -l%,$(1))
+ 
++ifndef NO_LIBPFM4
++	ifneq ($(feature-libpfm4), 1)
++		msg := $(warning libpfm4 not found, disables libpfm4 support. Please install libpfm4-dev);
++		NO_LIBPFM := 1
++	else
++		CFLAGS += -DUSE_LIBPFM
++		EXTLIBS += -lpfm
++	endif
++endif
++
+ ifdef NO_LIBPERL
+   CFLAGS += -DNO_LIBPERL
+ else
+diff -urP linux-4.7.2-orig/tools/perf/Documentation/perf-record.txt linux-4.7.2-libpfm/tools/perf/Documentation/perf-record.txt
+--- linux-4.7.2-orig/tools/perf/Documentation/perf-record.txt	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/Documentation/perf-record.txt	2016-09-05 23:31:23.386367000 +0200
+@@ -360,6 +360,15 @@
+ 
+ Implies --timestamp-filename, --no-buildid and --no-buildid-cache.
+ 
++--pfm-events event::
++this option is only available when perf is linked with the libpfm4 library
++(see http://perfmon2.sf.net). It allows passing hardware events as strings
++for all support processors. Event filters can also be used. As an example:
++perf record --pfm-events inst_retired:any_p:u:c=1:i. More than one event can
++be passed to the option using the comma separator. Hardware events and
++generic hardware events cannot be mixed together. The latter must be used
++with the -e option. The -e option and this one can be mixed and matched.
++
+ SEE ALSO
+ --------
+ linkperf:perf-stat[1], linkperf:perf-list[1]
+diff -urP linux-4.7.2-orig/tools/perf/Documentation/perf-stat.txt linux-4.7.2-libpfm/tools/perf/Documentation/perf-stat.txt
+--- linux-4.7.2-orig/tools/perf/Documentation/perf-stat.txt	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/Documentation/perf-stat.txt	2016-09-05 23:31:23.386367000 +0200
+@@ -60,6 +60,14 @@
+ --tid=<tid>::
+         stat events on existing thread id (comma separated list)
+ 
++--pfm-events events::
++this option is only available when perf is linked with the libpfm4 library
++(see http://perfmon2.sf.net). It allows passing hardware events as strings
++for all support processors. Event filters can also be used. As an example:
++perf stat --pfm-events inst_retired:any_p:u:c=1:i. More than one event can
++be passed to the option using the comma separator. Hardware events and
++generic hardware events cannot be mixed together. The latter must be used
++with the -e option. The -e option and this one can be mixed and matched.
+ 
+ -a::
+ --all-cpus::
+diff -urP linux-4.7.2-orig/tools/perf/Documentation/perf-top.txt linux-4.7.2-libpfm/tools/perf/Documentation/perf-top.txt
+--- linux-4.7.2-orig/tools/perf/Documentation/perf-top.txt	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/Documentation/perf-top.txt	2016-09-05 23:31:23.387367001 +0200
+@@ -236,6 +236,16 @@
+ --hierarchy::
+ 	Enable hierarchy output.
+ 
++--pfm-events event::
++This option is only available when perf is linked with the libpfm4 library
++(see http://perfmon2.sf.net). It allows passing hardware events as strings
++for all support processors. Event filters can also be used. As an example:
++perf top --pfm-events inst_retired:any_p:u:c=1:i. More than one event can
++be passed to the option using the comma separator. Hardware events and
++generic hardware events cannot be mixed together. The latter must be used
++with the -e option. The -e option and this one can be mixed and matched.
++
++
+ INTERACTIVE PROMPTING KEYS
+ --------------------------
+ 
+diff -urP linux-4.7.2-orig/tools/perf/tests/make linux-4.7.2-libpfm/tools/perf/tests/make
+--- linux-4.7.2-orig/tools/perf/tests/make	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/tests/make	2016-09-05 23:31:23.387367001 +0200
+@@ -77,6 +77,7 @@
+ make_no_backtrace   := NO_BACKTRACE=1
+ make_no_libnuma     := NO_LIBNUMA=1
+ make_no_libaudit    := NO_LIBAUDIT=1
++make_no_libpfm4	    := NO_LIBPFM=1
+ make_no_libbionic   := NO_LIBBIONIC=1
+ make_no_auxtrace    := NO_AUXTRACE=1
+ make_no_libbpf	    := NO_LIBBPF=1
+@@ -105,6 +106,7 @@
+ make_minimal        += NO_LIBNUMA=1 NO_LIBAUDIT=1 NO_LIBBIONIC=1
+ make_minimal        += NO_LIBDW_DWARF_UNWIND=1 NO_AUXTRACE=1 NO_LIBBPF=1
+ make_minimal        += NO_LIBCRYPTO=1
++make_minimal        += NO_LIBPFM=1
+ 
+ # $(run) contains all available tests
+ run := make_pure
+@@ -133,6 +135,7 @@
+ run += make_no_backtrace
+ run += make_no_libnuma
+ run += make_no_libaudit
++run += make_no_libpfm4
+ run += make_no_libbionic
+ run += make_no_auxtrace
+ run += make_no_libbpf
+diff -urP linux-4.7.2-orig/tools/perf/util/parse-events.c linux-4.7.2-libpfm/tools/perf/util/parse-events.c
+--- linux-4.7.2-orig/tools/perf/util/parse-events.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/util/parse-events.c	2016-09-05 23:31:23.387367001 +0200
+@@ -22,6 +22,11 @@
+ #include "cpumap.h"
+ #include "asm/bug.h"
+ 
++#ifdef USE_LIBPFM
++#include <perfmon/pfmlib_perf_event.h>
++static void print_libpfm_events(bool event_glob);
++#endif
++
+ #define MAX_NAME_LEN 100
+ 
+ #ifdef PARSER_DEBUG
+@@ -2158,6 +2163,10 @@
+ 	}
+ 
+ 	print_tracepoint_events(NULL, NULL, name_only);
++
++#ifdef USE_LIBPFM
++	print_libpfm_events(name_only);
++#endif
+ }
+ 
+ int parse_events__is_hardcoded_term(struct parse_events_term *term)
+@@ -2341,3 +2350,226 @@
+ fail:
+ 	return NULL;
+ }
++
++#ifdef USE_LIBPFM
++static int
++parse_libpfm_event(const char **strp, struct perf_event_attr *attr)
++{
++	const char *p;
++	size_t l;
++	int ret;
++
++	ret = pfm_get_perf_event_encoding(*strp, PFM_PLM0|PFM_PLM3,
++					  attr, NULL, NULL);
++	if (ret == PFM_SUCCESS) {
++		p = strchr(*strp, ',');
++		if (p)
++			l = p - *strp;
++		else
++			l = strlen(*strp);
++
++		*strp += l;
++	}
++	return ret;
++}
++
++int parse_libpfm_events_option(const struct option *opt, const char *str,
++			       int unset __maybe_unused)
++{
++	struct perf_evlist *evlist = *(struct perf_evlist **)opt->value;
++	struct perf_event_attr attr;
++	struct perf_pmu *pmu;
++	struct perf_evsel *evsel;
++	const char *ostr;
++	int ret;
++
++	/*
++	 * for loading of cpumasks
++	 */
++	perf_pmu__scan(NULL);
++
++	for (;;) {
++		ostr = str;
++
++		memset(&attr, 0, sizeof(attr));
++
++		event_attr_init(&attr);
++
++		ret = parse_libpfm_event(&str, &attr);
++		if (ret != PFM_SUCCESS) {
++			fprintf(stderr, "failed to parse event %s : %s\n", str, pfm_strerror(ret));
++			return -1;
++		}
++
++		if (!(*str == 0 || *str == ',' || isspace(*str)))
++			return -1;
++
++		evsel = perf_evsel__new(&attr);
++		if (evsel == NULL)
++			return -1;
++
++		evsel->name = calloc(str - ostr + 1, 1);
++		if (!evsel->name) {
++			perf_evsel__delete(evsel);
++			return -1;
++		}
++		strncpy(evsel->name, ostr, str - ostr);
++		/*
++		 * use cpumask
++		 */
++		pmu = perf_pmu__find_by_type(attr.type);
++		if (pmu)
++			evsel->cpus = pmu->cpus;
++
++		perf_evlist__add(evlist, evsel);
++
++		if (*str == 0)
++			break;
++		if (*str == ',')
++			++str;
++	}
++	return 0;
++}
++
++
++
++static const char *srcs[PFM_ATTR_CTRL_MAX]={
++	[PFM_ATTR_CTRL_UNKNOWN] = "???",
++	[PFM_ATTR_CTRL_PMU] = "PMU",
++	[PFM_ATTR_CTRL_PERF_EVENT] = "perf_event",
++};
++
++static void
++print_attr_flags(pfm_event_attr_info_t *info)
++{
++	int n = 0;
++
++	if (info->is_dfl) {
++		printf("[default] ");
++		n++;
++	}
++
++	if (info->is_precise) {
++		printf("[precise] ");
++		n++;
++	}
++
++	if (!n)
++		printf("- ");
++}
++
++static void
++print_libpfm_detailed_events(pfm_pmu_info_t *pinfo, pfm_event_info_t *info)
++{
++	pfm_event_attr_info_t ainfo;
++	const char *src;
++	int j, ret;
++
++	ainfo.size = sizeof(ainfo);
++
++	printf("\nName  : %s\n", info->name);
++	printf("PMU   : %s\n", pinfo->name);
++	printf("Desc  : %s\n", info->desc);
++	printf("Equiv : %s\n", info->equiv ? info->equiv : "None");
++	printf("Code  : 0x%"PRIx64"\n", info->code);
++
++	pfm_for_each_event_attr(j, info) {
++		ret = pfm_get_event_attr_info(info->idx, j, PFM_OS_PERF_EVENT_EXT, &ainfo);
++		if (ret != PFM_SUCCESS)
++			continue;
++
++		if (ainfo.ctrl >= PFM_ATTR_CTRL_MAX)
++			ainfo.ctrl = PFM_ATTR_CTRL_UNKNOWN;
++
++		src = srcs[ainfo.ctrl];
++		switch(ainfo.type) {
++		case PFM_ATTR_UMASK:
++			printf("Umask : 0x%02"PRIx64" : %s: [%s] : ", ainfo.code, src, ainfo.name);
++			print_attr_flags(&ainfo);
++			printf(": %s\n", ainfo.desc);
++			break;
++		case PFM_ATTR_MOD_BOOL:
++			printf("Modif : %s: [%s] : %s (boolean)\n", src, ainfo.name, ainfo.desc);
++			break;
++		case PFM_ATTR_MOD_INTEGER:
++			printf("Modif : %s: [%s] : %s (integer)\n", src, ainfo.name, ainfo.desc);
++			break;
++		case PFM_ATTR_NONE:
++		case PFM_ATTR_RAW_UMASK:
++		case PFM_ATTR_MAX:
++		default:
++			printf("Attr  : %s: [%s] : %s\n", src, ainfo.name, ainfo.desc);
++		}
++	}
++}
++
++/*
++ * list all pmu::event:umask, pmu::event
++ * printed events may not be all valid combinations of umask for an event
++ */
++static void
++print_libpfm_simplified_events(pfm_pmu_info_t *pinfo, pfm_event_info_t *info)
++{
++	pfm_event_attr_info_t ainfo;
++	int j, ret;
++	int um = 0;
++
++	ainfo.size = sizeof(ainfo);
++
++	pfm_for_each_event_attr(j, info) {
++		ret = pfm_get_event_attr_info(info->idx, j, PFM_OS_PERF_EVENT_EXT, &ainfo);
++		if (ret != PFM_SUCCESS)
++			continue;
++
++		if (ainfo.type != PFM_ATTR_UMASK)
++			continue;
++
++		printf("%s::%s:%s\n", pinfo->name, info->name, ainfo.name);
++		um++;
++	}
++	if (um == 0)
++		printf("%s::%s\n", pinfo->name, info->name);
++}
++
++static void
++print_libpfm_events(bool name_only)
++{
++	pfm_event_info_t info;
++	pfm_pmu_info_t pinfo;
++	pfm_event_attr_info_t ainfo;
++	int i, p, ret;
++
++	/* initialize to zero to indicate ABI version */
++	info.size  = sizeof(info);
++	pinfo.size = sizeof(pinfo);
++	ainfo.size = sizeof(ainfo);
++
++	putchar('\n');
++
++	pfm_for_all_pmus(p) {
++		ret = pfm_get_pmu_info(p, &pinfo);
++		if (ret != PFM_SUCCESS)
++			continue;
++
++		/* ony print events that are supported by host HW */
++		if (!pinfo.is_present)
++			continue;
++
++		/* handled by perf directly */
++		if (pinfo.pmu == PFM_PMU_PERF_EVENT)
++			continue;
++
++		for (i = pinfo.first_event; i != -1; i = pfm_get_event_next(i)) {
++
++			ret = pfm_get_event_info(i, PFM_OS_PERF_EVENT_EXT, &info);
++			if (ret != PFM_SUCCESS)
++				continue;
++
++			if (!name_only)
++				print_libpfm_detailed_events(&pinfo, &info);
++			else
++				print_libpfm_simplified_events(&pinfo, &info);
++		}
++	}
++}
++#endif
+diff -urP linux-4.7.2-orig/tools/perf/util/parse-events.h linux-4.7.2-libpfm/tools/perf/util/parse-events.h
+--- linux-4.7.2-orig/tools/perf/util/parse-events.h	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/util/parse-events.h	2016-09-05 23:31:23.388367004 +0200
+@@ -35,6 +35,11 @@
+ int parse_filter(const struct option *opt, const char *str, int unset);
+ int exclude_perf(const struct option *opt, const char *arg, int unset);
+ 
++#ifdef USE_LIBPFM
++extern int parse_libpfm_events_option(const struct option *opt, const char *str,
++			       int unset);
++#endif
++
+ #define EVENTS_HELP_MAX (128*1024)
+ 
+ enum perf_pmu_event_symbol_type {
+diff -urP linux-4.7.2-orig/tools/perf/util/pmu.c linux-4.7.2-libpfm/tools/perf/util/pmu.c
+--- linux-4.7.2-orig/tools/perf/util/pmu.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/util/pmu.c	2016-09-05 23:31:23.388367004 +0200
+@@ -521,6 +521,17 @@
+ 	return NULL;
+ }
+ 
++struct perf_pmu *perf_pmu__find_by_type(unsigned type)
++{
++	struct perf_pmu *pmu;
++
++	list_for_each_entry(pmu, &pmus, list)
++		if (pmu->type == type)
++			return pmu;
++
++	return NULL;
++}
++
+ struct perf_pmu *perf_pmu__scan(struct perf_pmu *pmu)
+ {
+ 	/*
+diff -urP linux-4.7.2-orig/tools/perf/util/pmu.h linux-4.7.2-libpfm/tools/perf/util/pmu.h
+--- linux-4.7.2-orig/tools/perf/util/pmu.h	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm/tools/perf/util/pmu.h	2016-09-05 23:31:23.388367004 +0200
+@@ -68,6 +68,7 @@
+ int perf_pmu__format_parse(char *dir, struct list_head *head);
+ 
+ struct perf_pmu *perf_pmu__scan(struct perf_pmu *pmu);
++struct perf_pmu *perf_pmu__find_by_type(unsigned type);
+ 
+ void print_pmu_events(const char *event_glob, bool name_only);
+ bool pmu_have_event(const char *pname, const char *name);
