@@ -1,0 +1,165 @@
+diff -urP linux-4.7.2-libpfm/include/uapi/linux/perf_event.h linux-4.7.2-libpfm-random/include/uapi/linux/perf_event.h
+--- linux-4.7.2-libpfm/include/uapi/linux/perf_event.h	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm-random/include/uapi/linux/perf_event.h	2016-09-06 22:17:29.523228288 +0200
+@@ -386,6 +386,7 @@
+ 	 */
+ 	__u32	aux_watermark;
+ 	__u32	__reserved_2;	/* align to __u64 */
++	__u64   random_period_width;
+ };
+ 
+ #define perf_flags(attr)	(*(&(attr)->read_format + 1))
+diff -urP linux-4.7.2-libpfm/kernel/events/core.c linux-4.7.2-libpfm-random/kernel/events/core.c
+--- linux-4.7.2-libpfm/kernel/events/core.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm-random/kernel/events/core.c	2016-09-06 22:25:05.162489231 +0200
+@@ -46,6 +46,7 @@
+ #include <linux/filter.h>
+ #include <linux/namei.h>
+ #include <linux/parser.h>
++#include <linux/random.h>
+ 
+ #include "internal.h"
+ 
+@@ -6827,6 +6828,22 @@
+ 	perf_output_end(&handle);
+ }
+ 
++static void perf_randomize_event_period(struct perf_event *event)
++{
++	u64 mask = ((1ULL << event->attr.random_period_width) - 1);
++	u64 new_seed;
++
++	new_seed = prandom_u32();
++
++	if (unlikely(mask >> 32))
++		new_seed |= (u64)prandom_u32() << 32;
++
++	event->hw.sample_period = event->attr.sample_period
++		+ (new_seed & mask) - (mask >> 1);
++
++	event->hw.last_period = event->hw.sample_period;
++}
++
+ /*
+  * Generic event overflow handling, sampling.
+  */
+@@ -6888,6 +6905,9 @@
+ 
+ 	event->overflow_handler(event, data, regs);
+ 
++        if (event->attr.random_period_width)
++                perf_randomize_event_period(event);
++
+ 	if (*perf_event_fasync(event) && event->pending_kill) {
+ 		event->pending_wakeup = 1;
+ 		irq_work_queue(&event->pending);
+@@ -8926,6 +8946,28 @@
+ 	return ERR_PTR(err);
+ }
+ 
++static int perf_check_random_period(struct perf_event_attr *attr)
++{
++	u64 width = attr->random_period_width;
++	u64 period = attr->sample_period;
++	u64 half;
++
++	if (width > 63 || attr->freq)
++		return -EINVAL;
++
++	half =  (1ULL << (width - 1)) - 1;
++
++	/* overflow */
++	if ((period + half) < period)
++		return -EINVAL;
++
++	/* underflow and zero */
++	if (period  <= half)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int perf_copy_attr(struct perf_event_attr __user *uattr,
+ 			  struct perf_event_attr *attr)
+ {
+@@ -9047,6 +9089,13 @@
+ 
+ 	if (attr->sample_type & PERF_SAMPLE_REGS_INTR)
+ 		ret = perf_reg_validate(attr->sample_regs_intr);
++
++        if (attr->random_period_width) {
++                ret = perf_check_random_period(attr);
++                if (ret)
++                        return ret;
++        }
++
+ out:
+ 	return ret;
+ 
+diff -urP linux-4.7.2-libpfm/tools/perf/builtin-record.c linux-4.7.2-libpfm-random/tools/perf/builtin-record.c
+--- linux-4.7.2-libpfm/tools/perf/builtin-record.c	2016-09-05 23:31:23.384366996 +0200
++++ linux-4.7.2-libpfm-random/tools/perf/builtin-record.c	2016-09-06 22:34:13.173103390 +0200
+@@ -1394,6 +1394,7 @@
+                     "libpfm4 event selector. use 'perf list' to list available events",
+                     parse_libpfm_events_option),
+ #endif
++	OPT_UINTEGER(0, "random-width", &record.opts.random_width, "width of random mask for fixed period (<63)"),
+ 	OPT_END()
+ };
+ 
+@@ -1460,6 +1461,11 @@
+ 	if (rec->switch_output)
+ 		rec->timestamp_filename = true;
+ 
++        if (rec->opts.random_width > 63) {
++                fprintf(stderr, "random width cannot exceed 63\n");
++                usage_with_options(record_usage, record_options);
++        }
++
+ 	if (!rec->itr) {
+ 		rec->itr = auxtrace_record__init(rec->evlist, &err);
+ 		if (err)
+diff -urP linux-4.7.2-libpfm/tools/perf/Documentation/perf-record.txt linux-4.7.2-libpfm-random/tools/perf/Documentation/perf-record.txt
+--- linux-4.7.2-libpfm/tools/perf/Documentation/perf-record.txt	2016-09-05 23:31:23.386367000 +0200
++++ linux-4.7.2-libpfm-random/tools/perf/Documentation/perf-record.txt	2016-09-06 22:29:53.106482875 +0200
+@@ -369,6 +369,14 @@
+ generic hardware events cannot be mixed together. The latter must be used
+ with the -e option. The -e option and this one can be mixed and matched.
+ 
++--random-width::
++-r::
++Enable randomization of the fixed sampling period. The integer pass to the options
++represent the bit width of the randomization interval. In other words, if set to N,
++then the period is randomized from +/- 2^N around its value. This can be used to
++mitigate the bias due to a period that gets somehow synchronized with execution
++leading sections of code in the shadow with no samples.
++
+ SEE ALSO
+ --------
+ linkperf:perf-stat[1], linkperf:perf-list[1]
+diff -urP linux-4.7.2-libpfm/tools/perf/perf.h linux-4.7.2-libpfm-random/tools/perf/perf.h
+--- linux-4.7.2-libpfm/tools/perf/perf.h	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm-random/tools/perf/perf.h	2016-09-06 22:30:58.421391457 +0200
+@@ -74,6 +74,7 @@
+ 	bool         use_clockid;
+ 	clockid_t    clockid;
+ 	unsigned int proc_map_timeout;
++	unsigned int random_width;
+ };
+ 
+ struct option;
+diff -urP linux-4.7.2-libpfm/tools/perf/util/evsel.c linux-4.7.2-libpfm-random/tools/perf/util/evsel.c
+--- linux-4.7.2-libpfm/tools/perf/util/evsel.c	2016-08-20 18:11:18.000000000 +0200
++++ linux-4.7.2-libpfm-random/tools/perf/util/evsel.c	2016-09-06 22:44:22.771593207 +0200
+@@ -857,6 +857,11 @@
+ 	if (opts->sample_weight)
+ 		perf_evsel__set_sample_bit(evsel, WEIGHT);
+ 
++        if (opts->random_width) {
++                attr->random_period_width = opts->random_width;
++                attr->sample_type       |= PERF_SAMPLE_PERIOD;
++        }
++
+ 	attr->task  = track;
+ 	attr->mmap  = track;
+ 	attr->mmap2 = track && !perf_missing_features.mmap2;
