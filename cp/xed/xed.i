@@ -153,9 +153,9 @@ namespace std {
         xed_decoded_inst_dump($self, *buffer, 512);
     }
 
-    void get_asm_line_intel(char** buffer) {
+    void get_asm_line_intel(char** buffer, uint64_t base) {
         *buffer = (char*) malloc(64);
-        xed_decoded_inst_dump_intel_format($self, *buffer, 64, 0);
+        xed_decoded_inst_dump_intel_format($self, *buffer, 64, base);
     }
 
     void __str__(char** buffer) {

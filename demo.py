@@ -20,11 +20,11 @@ if __name__ == "__main__":
 
     # an example of kernel symbol name resolution
     kernel = elf.Kernel("/tmp/vmlinux.elf", "/tmp/vmlinux.symbols")
-    for addr in [0xffffffff81003240,
-                 0xffffffff81003250,
-                 0xffffffff81003261,
-                 0xffffffff8100326f]:
-        symbol = kernel.get_symbol_by_offset(addr)
+    for addr in [0x203240,
+                 0x203250,
+                 0x203261,
+                 0x20326f]:
+        symbol = kernel.get_symbol_by_poff(addr)
         print(symbol)
 
     # this is a `good' binary with .symtab and DWARF

@@ -116,13 +116,15 @@ class TestELFFile(unittest.TestCase):
         202: 00000000004528b0    31 FUNC    GLOBAL DEFAULT   14 set_sigwinch_handler
         203: 00000000004720a0   439 FUNC    GLOBAL DEFAULT   14 set_shellopts
         204: 0000000000431030   167 FUNC    GLOBAL DEFAULT   14 execute_command
+        1034: 000000000041b070     0 FUNC    GLOBAL DEFAULT   14 _start # zero size symbol
       """
         poff_to_sym = {0x7f580 : 'sh_regmatch',  # first byte
                        0x7f580 + 452 - 1: 'sh_regmatch',  # last byte
                        0x7f580 + 452: None,  # beyond last byte
                        0x39c00 : 'fatal_error',  # first byte
                        0x39c00 + 199 -1 : 'fatal_error',  # last byte
-                       0x31030 : 'execute_command'}
+                       0x31030 : 'execute_command',
+                       0x1b070 : '_start'}
         for poff, sym in poff_to_sym.iteritems():
             symbol = self.bash.get_symbol_by_poff(poff)
             self.assertEqual(symbol, sym)

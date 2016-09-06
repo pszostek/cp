@@ -1,28 +1,44 @@
-import xed
-import disass
-from fun_list import get_text
+import elffile
+import unittest
+import os
 
-text = get_text("/home/paszoste/cp/testG4Box")
+class TestDisass(unittest.TestCase):
 
-inst_list = disass.disassemble_x64(text)
+    BIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../real_data")
 
-# il1 = inst_list[:5]
-# il2 = inst_list[5:10]
+    @classmethod
+    def setUpClass(cls):
+        cls.hydro = elffile.ELFFile(os.path.join(cls.BIN_PATH, 'hydro-pre'))
 
-for inst in inst_list:
-    print inst
-    print "unsigned imm:", inst.get_unsigned_immediate()
-    print "signed imm:", inst.get_signed_immediate()
-    print "number of operands:", inst.get_number_of_operands()
-    for idx in xrange(0, inst.get_number_of_operands()):
-        print inst.get_operand_length(idx)
-    print "branch displacement: ", inst.get_branch_displacement()
-    print "bytes:", disass.bytes_to_string(inst.get_bytes())
-    print ""
-    # if xed.terminates_bb(inst):
-    #     print ">>",\
-    #           inst.get_asm_line_intel(),\
-    #           xed.xed_operand_values_get_branch_displacement_int32(xed.xed_decoded_inst_operands_const(inst))
-    # else:
-    #     print inst.get_asm_line_intel()
+    def test_absolute_poff_in_asm_line(self):
+        """
+        objdump output:
+            40173b:       e9 dd fe ff ff          jmpq   40161d <CalcSubSurface+0x11d>
+        we expect the following asm line:
+            jmpq 0x161d  # 0x173b - 0x11e = 0x161d
+        an *incorrect* asm line would be:
+            jmpq 0xfffffffffffffee2  # 0x0-0x11e
+        """
+        df = self.hydro.get_inst_lists([(0x173b, 0x173f)])
+        asm_line = df.loc['CalcSubSurface', 0x173b, 0]['asm_line']
+        self.assertIn('0x161d', asm_line)
 
+    def test_absolute_poff_in_asm_line2(self):
+        """
+        objdump output:
+            401434:       e8 e7 fd ff ff          callq  401220 <__libc_start_main@plt>
+        incorrect asm:
+            call 0xfffffffffffffdec
+        correct asm:
+            callq  0x1220
+
+        observations:
+            (uint64)0 - 0xfffffffffffffdec = 0x214
+            0x1434-0x214 = '0x1220'
+        """
+        df = self.hydro.get_inst_lists([(0x1434, 0x1438)])
+        asm_line = df.loc['_start', 0x1434, 0]['asm_line']
+        self.assertIn('0x1220', asm_line)
+
+if __name__ == "__main__":
+    unittest.main()
