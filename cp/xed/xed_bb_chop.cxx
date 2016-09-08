@@ -126,6 +126,8 @@ static inline uint32_t get_number_of_symbols(char* elf_data, int symtab_idx) {
         char name[1024];
         unsigned long long count = 0;
 
+//        int ch;        
+//        while (EOF != (ch=fgetc(f))) if (ch=='\n') ++count;
         while(fscanf(f, "%lx %c %s", &addr, &type, name) != EOF) {
             count++;
         }
@@ -255,7 +257,7 @@ static void get_symbols_info(char* elf_data,
         unsigned long long text_section_poff = elf_shdr[text_section_id].sh_offset;
 
         for(unsigned symidx = 0; symidx < symtab_entries; ++symidx) {
-	    fscanf(f, "%lx %c %s", &addr, &type, name);
+	    fscanf(f, "%lx %c %1000s", &addr, &type, name);
             // take the physical address of the first symbol as the base - TODO - THIS WILL BREAK
 	    if(symidx == 0) local_vbase = addr - text_section_poff;
 //            elf_symbol_poff[symidx] = addr;
@@ -451,7 +453,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
 
 //    unsigned long long binary_base = get_binary_base(elf_data);
     int16_t symtab_idx = get_symtab_idx(elf_data);
-    uint16_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
+    uint32_t number_of_symbols = get_number_of_symbols(elf_data, symtab_idx);
+    printf("NUMBER OF SYMBOLS: %d\n", number_of_symbols);
     std::vector<unsigned long long> elf_symbol_poff(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_vaddr(number_of_symbols, 0UL);
     std::vector<unsigned long long> elf_symbol_sizes(number_of_symbols, 0UL);
