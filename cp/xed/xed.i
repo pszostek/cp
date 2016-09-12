@@ -354,6 +354,17 @@ namespace std {
     //     return xed_decoded_inst_get_memory_displacement($self);
     // }
 
+    %pythoncode %{
+        __swig_getmethods__["iclass"] = get_iclass_code
+        __swig_getmethods__["category"] = get_category_code
+        __swig_getmethods__["isa_set"] = get_isa_set_code
+        __swig_getmethods__["extension"] = get_extension_code
+        if _newclass:
+            iclass = property(get_iclass)
+            category = property(get_category_code)
+            isa_set = property(get_isa_set_code)
+            extension = property(get_extension_code)
+    %}
 
     %cstring_output_allocate_size(char** bytes, unsigned int* bytes_len, free(*$1));
     void get_bytes(char** bytes, unsigned int* bytes_len) {
