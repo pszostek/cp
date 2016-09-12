@@ -4,6 +4,15 @@ from ..xed import xed
 import elffile as elffile_mod
 import addr2line
 
+_USER_ATTRIBUTES = {}
+
+def inst_attribute(fn, name=None):
+    assert(callable(fn), 'inst_attribute shall be used as a function decorator')
+    if name is None:
+        name = fn.__name__
+    _USER_ATTRIBUTES[name] = fn
+    return fn
+
 def bytes_to_string(bytes):
     return ' '.join(map(lambda x: '%02x' % ord(x), bytes))
 
@@ -148,7 +157,7 @@ def get_inst_lists(elffile, addrs_list):
                 #operands[1].name,
                 operands[1].action,
                 operands[1].elem
-                ))
+                ) + tuple([fn(inst) for fn in _USER_ATTRIBUTES.values()]))
             offset_inside_bb += inst_length
 
     index = pd.MultiIndex.from_tuples(index_tuples, names=[ 'symbol',
@@ -185,7 +194,7 @@ def get_inst_lists(elffile, addrs_list):
             #'op1.name',
             'op1.action',
             'op1.elem'
-            ])
+            ] + [name for name in _USER_ATTRIBUTES.keys()])
     return ret_data_frame
 
 

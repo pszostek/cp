@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define DEBUG
+//#define DEBUG
 //#define VERBOSE
 
 #ifdef DEBUG

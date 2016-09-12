@@ -19,7 +19,7 @@ if __name__ == "__main__":
     """
 
     # an example of kernel symbol name resolution
-    kernel = elf.Kernel("/tmp/vmlinux.elf", "/tmp/vmlinux.symbols")
+    kernel = elf.Kernel("./real_data/vmlinux.elf", "./real_data/vmlinux.symbols")
     for addr in [0x203240,
                  0x203250,
                  0x203261,
@@ -52,11 +52,14 @@ if __name__ == "__main__":
     print("Test line info: %s" % line_numbers[0])
 
     # get demangled symbol name for an offset based on .symtab
-    magic_offset = 0x524b50
-    symbol = binary.get_symbol_by_offset(magic_offset)
+    magic_offset = 0x124b50
+    symbol = binary.get_symbol_by_poff(magic_offset)
     print("Test symbol: %s" % str(symbol))
 
     # get info for the the first basic blocks
+    import importlib
+    importlib.import_module("user_attrs")
+
     inst_lists = binary.get_inst_lists([(bb.start, bb.end) for bb in bbs][:10])
     # XXX: was:
     # inst_lists = \
