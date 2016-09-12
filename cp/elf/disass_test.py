@@ -40,5 +40,23 @@ class TestDisass(unittest.TestCase):
         asm_line = df.loc['_start', 0x1434, 0]['asm_line']
         self.assertIn('0x1220', asm_line)
 
+    def test_get_inst_list(self):
+        """
+        objdump output:
+            4015ee:       44 3b ef                cmp    %edi,%r13d
+            4015f1:       89 cf                   mov    %ecx,%edi
+            4015f3:       45 0f 4f e3             cmovg  %r11d,%r12d
+            4015f7:       45 8d 58 01             lea    0x1(%r8),%r11d
+            4015fb:       41 0f af f8             imul   %r8d,%edi
+            4015ff:       41 03 fe                add    %r14d,%edi
+            401602:       44 3b ff                cmp    %edi,%r15d
+            401605:       45 0f 4f c3             cmovg  %r11d,%r8d
+            401609:       83 7c 24 70 00          cmpl   $0x0,0x70(%rsp)
+            40160e:       75 0d                   jne    40161d <CalcSubSurface+0x11d>
+        """
+        df = self.hydro.get_inst_lists([(0x15ee, 0x160f)])
+        self.assertEquals(len(df.index), 10)
+
+
 if __name__ == "__main__":
     unittest.main()
