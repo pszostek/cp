@@ -145,15 +145,13 @@ class TestELFFile(unittest.TestCase):
             000000000041a440 <dup2@plt>:
             000000000041a460 <mbtowc@plt>:
         """
-        poff_to_sym = {0x1a41f : 'tcsetattr',
-                       0x1a420 : 'chdir',
+        poff_to_sym = {0x1a420 : 'chdir',
                        0x1a430 : 'fileno',
                        0x1a440 : 'dup2',
                        0x1a460 : 'mbtowc'}
         for poff, sym in poff_to_sym.iteritems():
             symbol = self.bash.get_symbol_by_poff(poff)
             self.assertEqual(symbol, sym)
-            print(symbol)
 
 if __name__ == "__main__":
     unittest.main()
