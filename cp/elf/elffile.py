@@ -236,26 +236,37 @@ class ELFFile(ELFFile_):
             else:
                 raise StopIteration()
 
+        plt_idx = 1
         symbols_list = list(symbols_iter)
         sym_start_vaddrs = [sym['st_value'] for sym in symbols_list]
         guessed_symbol_sizes = self._compute_symbol_sizes(sym_start_vaddrs)
         for sym in symbols_list:
-            if sym.entry['st_info']['type'] == 'STT_FUNC' and sym['st_shndx'] is not 'SHN_UNDEF':
-                demangled_name = demangle.cplus_demangle(sym.name, 1)
-                if demangled_name is not None:
-                    name = demangled_name
-                else:
-                    name = sym.name
-                adj = self._symbol_to_poff_adj(sym)
-                sym_size = 0
-                sym_poff = sym.entry['st_value'] + adj
-                if sym.entry['st_size'] is not 0:
-                    sym_size = sym.entry['st_size']
-                else:
-                    try:
-                        sym_size = guessed_symbol_sizes[sym.entry['st_value']]
-                    except KeyError:  # nope, we don't have this value
-                        pass  # oh well, the symbol will be zero-sized
+            demangled_name = demangle.cplus_demangle(sym.name, 1)
+            if demangled_name is not None:
+                name = demangled_name
+            else:
+                name = sym.name
+            if sym.entry['st_info']['type'] == 'STT_FUNC': # functions
+                if sym['st_shndx'] is 'SHN_UNDEF':  # .plt symbols
+                    plt_poff = self.get_section_by_name('.plt').header['sh_offset']
+                    sym_size = 0x10 # TODO: it's a dirty hack.
+                                    # .plt symbols seem to be always 16 bytes
+                                    # long, but who actually knows
+                    sym_poff = plt_poff + 0x10*plt_idx
+                    plt_idx += 1
+                else:  # normal symbols
+                    adj = self._symbol_to_poff_adj(sym)
+                    sym_poff = sym.entry['st_value'] + adj
+
+                    if sym.entry['st_size'] is not 0: # symbols defined in the code
+                        sym_size = sym.entry['st_size']
+                    else:
+                        try: # automatic symbols: call_gmon_start _fini etc.
+                            # their size is not defined in the .symtab
+                            sym_size = guessed_symbol_sizes[sym.entry['st_value']]
+                        except KeyError:
+                            # oh well, the symbol will be zero-sized
+                            sym_size = 0
                 yield Func(name=name,
                            mangled_name=sym.name,
                            poff=sym_poff,
@@ -291,7 +302,10 @@ class ELFFile(ELFFile_):
     def _symbol_to_poff_adj(self, symbol):
         """ symbol is an elf.Symbol """
         assert(isinstance(symbol, Symbol))
-        sym_section = self.get_section(symbol['st_shndx'])
+        if symbol['st_shndx'] is 'SHN_UNDEF':
+            sym_section = self.get_section_by_name('.plt')
+        else:
+            sym_section = self.get_section(symbol['st_shndx'])
         adj = sym_section['sh_offset'] - sym_section['sh_addr']
         return adj
 

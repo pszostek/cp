@@ -24,12 +24,19 @@ class TestELFFile(unittest.TestCase):
          readelf -S:
         [12] .text             PROGBITS         000000391cc1ea60  0001ea60
          00000000001217ac  0000000000000000  AX       0     0     32
+
+         objdump -d -a:
+         Disassembly of section .plt:
+
+         000000000041a400 <tcsetattr@plt-0x10>:
+         41a400:       ff 35 42 9e 2b 00       pushq  0x2b9e42(%rip)        # 6d4248 <_rl_possible_meta_prefixes+0x217ce8>
         """
         poff_to_sym = {0x8d910: '__strspn_c1',  # first byte, 0x391cc8d910-0x391cc1ea60
                       0x8d910+30-1 : '__strspn_c1', # last byte
                       0x6a5a0: 'putwchar', # first byte
                       0x6a5a0+277-1: 'putwchar', # last byte
-                      0x101d90: '__gethostname_chk'
+                      0x101d90: '__gethostname_chk',
+                      0xdffb0: '__GI_tcsetattr'
                       }
 
         for poff, sym in poff_to_sym.iteritems():
@@ -138,14 +145,14 @@ class TestELFFile(unittest.TestCase):
             000000000041a440 <dup2@plt>:
             000000000041a460 <mbtowc@plt>:
         """
-        poff_to_sym = {0x1a410 : 'tcsetattr',
+        poff_to_sym = {0x1a41f : 'tcsetattr',
                        0x1a420 : 'chdir',
                        0x1a430 : 'fileno',
                        0x1a440 : 'dup2',
                        0x1a460 : 'mbtowc'}
         for poff, sym in poff_to_sym.iteritems():
             symbol = self.bash.get_symbol_by_poff(poff)
-            #self.assertEqual(symbol, sym)
+            self.assertEqual(symbol, sym)
             print(symbol)
 
 if __name__ == "__main__":
