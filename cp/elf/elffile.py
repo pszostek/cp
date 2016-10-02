@@ -297,9 +297,12 @@ class ELFFile(ELFFile_):
 
 
 class Kernel(ELFFile):
-    def __init__(self, filepath, sysmap_filepath):
+    def __init__(self, filepath, sysmap_filepath, lazy=False):
         ELFFile.__init__(self, filepath)
-        self._poff_to_sym = self._build_poff_to_sym(sysmap_filepath)
+        if self.lazy: # if lazy is set, the poff_to_sym table will be built later, on iteration
+            self._poff_to_sym = None
+        else:
+            self._poff_to_sym = self._build_poff_to_sym(sysmap_filepath)
 
     def _build_poff_to_sym(self, sysmap_filepath):
         ret = {}
@@ -336,6 +339,8 @@ class Kernel(ELFFile):
         return -load_vaddr + text['sh_offset']
 
     def _iter_func(self, symbols_iter=None):
+        if self._poff_to_sym is None:
+            self._poff_to_sym = self._build_poff_to_sym(sysmap_filepath)
         sym_start_poff = sorted(self._poff_to_sym.keys())
         sym_poff_boundaries = self._compute_symbol_boundaries(sym_start_poff)
 
