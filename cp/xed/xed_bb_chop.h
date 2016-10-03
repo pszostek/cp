@@ -52,6 +52,7 @@ typedef struct {
   uint64_t end;		// the physical offset where the BB endds (last byte)
   uint64_t vend;	// the virtual end address
   uint32_t len;		// BB length (decimal)
+  uint32_t ilen;    // instructions in BB
   uint8_t ucond;	// if non-zero, the BB ends with an unconditional jump
 } bbnowak_t;
 

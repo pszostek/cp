@@ -393,6 +393,47 @@ struct tuple_hash {
     }
 };
 
+unsigned compute_bb_ilen(char* elf_data, unsigned long long start, unsigned long long end) {
+    if(end == 0L)
+        return 0;
+    unsigned long long decode_window_start = start;
+    unsigned cur_inst_len;
+    unsigned ret = 0;
+
+    xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
+    xed_state_t dstate;
+    xed_state_zero(&dstate);
+    xed_state_init(&dstate,
+        XED_MACHINE_MODE_LONG_64,
+        XED_ADDRESS_WIDTH_64b,
+        XED_ADDRESS_WIDTH_64b);
+    xed_error_enum_t xed_error;
+    
+    xed_tables_init();
+
+    while(decode_window_start <= end) {
+          xed_decoded_inst_zero_set_mode(xedd, &dstate);
+          //since we are interested in a single instruction, we set the decoding window to the longest possible instruction (15 bytes)
+          xed_error = xed_decode(xedd, 
+              XED_REINTERPRET_CAST(xed_uint8_t*,elf_data+decode_window_start),
+              LONGEST_POSSIBLE_INSTRUCTION+1);
+
+          switch(xed_error) {
+              case XED_ERROR_NONE:
+                  cur_inst_len = xed_decoded_inst_get_length(xedd);
+                  decode_window_start += cur_inst_len;
+                  ++ret;
+                  break;
+              case XED_ERROR_BUFFER_TOO_SHORT:
+              case XED_ERROR_GENERAL_ERROR: //decode window is too short - there is no meaningful instruction inside
+              default:
+                  decode_window_start += 1;
+         }
+    }
+    free(xedd);
+    return ret;
+}
+
 /* This function attempts to track BB boundaries according to the blessed Levinthal's method.
  * It keeps a set of starting addresses coming from various logical sources:
  *    * symbol offsets
@@ -665,6 +706,8 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
         ea_v = std::get<1>(end_ret_t[j]);
         ea_u = std::get<2>(end_ret_t[j]);
       };
+
+      current_bb->ilen = compute_bb_ilen(elf_data, current_bb->start, current_bb->end);
       ret_blocks.push_back(*current_bb); // WHATEVER
       i++;
     }
