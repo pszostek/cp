@@ -210,14 +210,14 @@ def get_basic_block(elffile, offset, to=None):
     section_end = section_size + section_offset
 
     if to is None:
-        print "%s disasm: TO IS None for offset 0x%x" % (elffile._path, offset)
+        print "%s disasm: TO IS None for offset 0x%x. Your program or machine might crash" % (elffile._path, offset)
     if to == 0:
-        print "%s disasm: TO IS 0 for offset 0x%x" % (elffile._path, offset)
+        print "%s disasm: TO IS 0 for offset 0x%x. Your program or machine might crash" % (elffile._path, offset)
     
     if to is not None and to != 0:
         chunk_size = to-offset+1
     else:
-        chunk_size = 256 # this BREAKS disassembly
+        chunk_size = 16 # this BREAKS disassembly
         
     saved_pos = fd.tell()
     ret_value = None

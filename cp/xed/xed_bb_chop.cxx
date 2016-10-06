@@ -393,6 +393,49 @@ struct tuple_hash {
     }
 };
 
+int mini_decode_range(char *elf_data, uint64_t bb_start, uint64_t bb_end) {
+    int ilen = 0, errors = 0;
+    char cur_inst_len = 0;
+    
+    xed_decoded_inst_t* xedd = (xed_decoded_inst_t*) malloc(sizeof(xed_decoded_inst_t));
+    xed_state_t dstate;
+    xed_state_zero(&dstate);
+    xed_state_init(&dstate,
+        XED_MACHINE_MODE_LONG_64,
+        XED_ADDRESS_WIDTH_64b,
+        XED_ADDRESS_WIDTH_64b);
+    xed_error_enum_t xed_error;
+    
+    xed_tables_init();
+
+    unsigned long long decode_window_start = bb_start;
+    
+    while(decode_window_start < bb_end) {
+        xed_decoded_inst_zero_set_mode(xedd, &dstate);
+        xed_error = xed_decode(xedd,
+            XED_REINTERPRET_CAST(xed_uint8_t*, elf_data + decode_window_start),
+            LONGEST_POSSIBLE_INSTRUCTION+1);
+        
+        switch(xed_error) {
+            case XED_ERROR_NONE:
+                cur_inst_len = xed_decoded_inst_get_length(xedd);
+                ilen += 1;
+                decode_window_start += cur_inst_len;
+                break;
+                
+            case XED_ERROR_BUFFER_TOO_SHORT:
+            case XED_ERROR_GENERAL_ERROR:
+            default:
+                DBG("Mini-decode error at 0x%lx (bb: 0x%lx-0x%lx, ilen: %d)\n", decode_window_start, bb_start, bb_end, ilen);
+                decode_window_start += 1;
+                errors += 1;
+        }
+        if (errors > 10) break; // if we get lots of errors on this block, don't bother any further
+    }
+    DBG("XX: start 0x%lx, end 0x%lx, ilen %d, decode errors: %d\n", bb_start, bb_end, ilen, errors);
+    return ilen > 0 ? ilen : 1; // we don't want no zeroes up in here.
+}
+
 /* This function attempts to track BB boundaries according to the blessed Levinthal's method.
  * It keeps a set of starting addresses coming from various logical sources:
  *    * symbol offsets
@@ -669,6 +712,11 @@ std::vector<bbnowak_t> newer_detect_static_basic_blocks(char* elf_data, unsigned
       i++;
     }
 
-
+    for(auto &bb: ret_blocks) {
+      if (bb.end == 0) continue; // can't help these poor suckers
+      if ((bb.start > fsize) || (bb.end > fsize)) break; // crazy things going on here in these kernels
+      bb.ilen = mini_decode_range(elf_data, bb.start, bb.end);
+    }
+    
     return ret_blocks;
 }

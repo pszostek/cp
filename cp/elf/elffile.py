@@ -298,8 +298,8 @@ class ELFFile(ELFFile_):
 
 class Kernel(ELFFile):
     def __init__(self, filepath, sysmap_filepath, lazy=False):
-        ELFFile.__init__(self, filepath)
-        if self.lazy: # if lazy is set, the poff_to_sym table will be built later, on iteration
+        ELFFile.__init__(self, filepath)        
+        if lazy: # if lazy is set, the poff_to_sym table will be built later, on iteration
             self._poff_to_sym = None
         else:
             self._poff_to_sym = self._build_poff_to_sym(sysmap_filepath)
